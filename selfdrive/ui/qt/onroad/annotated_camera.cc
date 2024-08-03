@@ -309,11 +309,12 @@ void AnnotatedCameraWidget::updateFrameMat() {
       .translate(-intrinsic_matrix.v[2], -intrinsic_matrix.v[5]);
 }
 
-void AnnotatedCameraWidget::drawLaneLines(QPainter &painter, const UIState *s, const float v_ego) {
+void AnnotatedCameraWidget::drawLaneLines(QPainter &painter, const UIState *s) {
   painter.save();
 
   const UIScene &scene = s->scene;
   SubMaster &sm = *(s->sm);
+  float v_ego = sm["carState"].getCarState().getVEgo();
 
   // lanelines
   for (int i = 0; i < std::size(scene.lane_line_vertices); ++i) {
@@ -436,13 +437,13 @@ void AnnotatedCameraWidget::drawDriverState(QPainter &painter, const UIState *s)
   painter.restore();
 }
 
-void AnnotatedCameraWidget::drawLead(QPainter &painter, const cereal::ModelDataV2::LeadDataV3::Reader &lead_data, const QPointF &vd, const float v_ego) {
+void AnnotatedCameraWidget::drawLead(QPainter &painter, const cereal::RadarState::LeadData::Reader &lead_data, const QPointF &vd) {
   painter.save();
 
   const float speedBuff = 10.;
   const float leadBuff = 40.;
-  const float d_rel = lead_data.getX()[0];
-  const float v_rel = lead_data.getV()[0] - v_ego;
+  const float d_rel = lead_data.getDRel();
+  const float v_rel = lead_data.getVRel();
 
   float fillAlpha = 0;
   if (d_rel < leadBuff) {
@@ -477,7 +478,6 @@ void AnnotatedCameraWidget::paintGL() {
   SubMaster &sm = *(s->sm);
   const double start_draw_t = millis_since_boot();
   const cereal::ModelDataV2::Reader &model = sm["modelV2"].getModelV2();
-  const float v_ego = sm["carState"].getCarState().getVEgo();
 
   // draw camera frame
   {
@@ -499,6 +499,7 @@ void AnnotatedCameraWidget::paintGL() {
     // Wide or narrow cam dependent on speed
     bool has_wide_cam = available_streams.count(VISION_STREAM_WIDE_ROAD);
     if (has_wide_cam && cameraView == 0) {
+      float v_ego = sm["carState"].getCarState().getVEgo();
       if ((v_ego < 10) || available_streams.size() == 1) {
         wide_cam_requested = true;
       } else if (v_ego > 15) {
@@ -529,18 +530,18 @@ void AnnotatedCameraWidget::paintGL() {
 
   if (s->scene.world_objects_visible) {
     update_model(s, model, sm["uiPlan"].getUiPlan());
-    drawLaneLines(painter, s, v_ego);
+    drawLaneLines(painter, s);
 
-    if (s->scene.longitudinal_control && sm.rcv_frame("modelV2") > s->scene.started_frame && !s->scene.hide_lead_marker) {
-      update_leads(s, model);
-      float prev_drel = -1;
-      for (int i = 0; i < model.getLeadsV3().size() && i < 2; i++) {
-        const auto &lead = model.getLeadsV3()[i];
-        auto lead_drel = lead.getX()[0];
-        if (s->scene.has_lead && (prev_drel < 0 || std::abs(lead_drel - prev_drel) > 3.0)) {
-          drawLead(painter, lead, s->scene.lead_vertices[i], (speed / (is_metric ? MS_TO_KPH : MS_TO_MPH)));
-        }
-        prev_drel = lead_drel;
+    if (s->scene.longitudinal_control && sm.rcv_frame("radarState") > s->scene.started_frame && !s->scene.hide_lead_marker) {
+      auto radar_state = sm["radarState"].getRadarState();
+      update_leads(s, radar_state, model.getPosition());
+      auto lead_one = radar_state.getLeadOne();
+      auto lead_two = radar_state.getLeadTwo();
+      if (lead_one.getStatus()) {
+        drawLead(painter, lead_one, s->scene.lead_vertices[0]);
+      }
+      if (lead_two.getStatus() && (std::abs(lead_one.getDRel() - lead_two.getDRel()) > 3.0)) {
+        drawLead(painter, lead_two, s->scene.lead_vertices[1]);
       }
     }
   }
@@ -778,7 +779,6 @@ void AnnotatedCameraWidget::drawStatusBar(QPainter &p) {
   constexpr qreal fadeDuration = 1500.0;
   constexpr qreal textDuration = 5000.0;
 
-  static qreal roadNameOpacity = 0.0;
   static qreal statusTextOpacity = 0.0;
 
   QString newStatus;
@@ -830,9 +830,7 @@ void AnnotatedCameraWidget::drawStatusBar(QPainter &p) {
     }
   }
 
-  QString roadName = roadNameUI ? QString::fromStdString(paramsMemory.get("RoadName")) : QString();
-
-  if (newStatus != lastShownStatus || roadName.isEmpty()) {
+  if (newStatus != lastShownStatus) {
     lastShownStatus = newStatus;
     displayStatusText = true;
     timer.restart();
@@ -842,9 +840,7 @@ void AnnotatedCameraWidget::drawStatusBar(QPainter &p) {
 
   if (displayStatusText) {
     statusTextOpacity = qBound(0.0, 1.0 - (timer.elapsed() - textDuration) / fadeDuration, 1.0);
-    roadNameOpacity = 1.0 - statusTextOpacity;
   } else {
-    roadNameOpacity = qBound(0.0, timer.elapsed() / fadeDuration, 1.0);
     statusTextOpacity = 0.0;
   }
 
@@ -856,13 +852,6 @@ void AnnotatedCameraWidget::drawStatusBar(QPainter &p) {
   QRect textRect = p.fontMetrics().boundingRect(statusBarRect, Qt::AlignCenter | Qt::TextWordWrap, newStatus);
   textRect.moveBottom(statusBarRect.bottom() - 50);
   p.drawText(textRect, Qt::AlignCenter | Qt::TextWordWrap, newStatus);
-
-  if (!roadName.isEmpty()) {
-    p.setOpacity(roadNameOpacity);
-    textRect = p.fontMetrics().boundingRect(statusBarRect, Qt::AlignCenter | Qt::TextWordWrap, roadName);
-    textRect.moveBottom(statusBarRect.bottom() - 50);
-    p.drawText(textRect, Qt::AlignCenter | Qt::TextWordWrap, roadName);
-  }
 
   p.restore();
 }

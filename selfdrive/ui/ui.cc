@@ -44,15 +44,12 @@ int get_path_length_idx(const cereal::XYZTData::Reader &line, const float path_h
   return max_idx;
 }
 
-void update_leads(UIState *s, const cereal::ModelDataV2::Reader &model_data) {
-  const cereal::XYZTData::Reader &line = model_data.getPosition();
-  for (int i = 0; i < model_data.getLeadsV3().size() && i < 2; ++i) {
-    const auto &lead = model_data.getLeadsV3()[i];
-    if (s->scene.has_lead) {
-      float d_rel = lead.getX()[0];
-      float y_rel = lead.getY()[0];
-      float z = line.getZ()[get_path_length_idx(line, d_rel)];
-      calib_frame_to_full_frame(s, d_rel, y_rel, z + 1.22, &s->scene.lead_vertices[i]);
+void update_leads(UIState *s, const cereal::RadarState::Reader &radar_state, const cereal::XYZTData::Reader &line) {
+  for (int i = 0; i < 2; ++i) {
+    auto lead_data = (i == 0) ? radar_state.getLeadOne() : radar_state.getLeadTwo();
+    if (lead_data.getStatus()) {
+      float z = line.getZ()[get_path_length_idx(line, lead_data.getDRel())];
+      calib_frame_to_full_frame(s, lead_data.getDRel(), -lead_data.getYRel(), z + 1.22, &s->scene.lead_vertices[i]);
     }
   }
 }
