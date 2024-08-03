@@ -1,6 +1,7 @@
 """Install exception handler for process crash."""
 import os
 import sentry_sdk
+import subprocess
 import time
 import traceback
 
@@ -27,6 +28,28 @@ class SentryProject(Enum):
 
 def bind_user() -> None:
   sentry_sdk.set_user({"id": HARDWARE.get_serial()})
+
+
+def capture_tmux(params) -> None:
+  updated = params.get("Updated", encoding='utf-8')
+
+  try:
+    result = subprocess.run(['tmux', 'capture-pane', '-p', '-S', '-250'], stdout=subprocess.PIPE)
+    lines = result.stdout.decode('utf-8').splitlines()
+
+    if lines:
+      while True:
+        if sentry_pinged():
+          with sentry_sdk.configure_scope() as scope:
+            bind_user()
+            scope.set_extra("tmux_log", "\n".join(lines))
+            sentry_sdk.capture_message(f"User's UI crashed ({updated})", level='error')
+            sentry_sdk.flush()
+          break
+        time.sleep(60)
+
+  except Exception:
+    cloudlog.exception("Failed to capture tmux log")
 
 
 def report_tombstone(fn: str, message: str, contents: str) -> None:
@@ -193,7 +216,7 @@ def init(project: SentryProject) -> bool:
                   release=get_version(),
                   integrations=integrations,
                   traces_sample_rate=1.0,
-                  max_value_length=8192,
+                  max_value_length=98304,
                   environment=env)
 
   build_metadata = get_build_metadata()
