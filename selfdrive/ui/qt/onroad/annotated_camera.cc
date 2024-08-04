@@ -545,7 +545,7 @@ void AnnotatedCameraWidget::drawDriverState(QPainter &painter, const UIState *s)
   } else if (onroadDistanceButton) {
     x += 250;
   }
-  offset += showAlwaysOnLateralStatusBar || showConditionalExperimentalStatusBar || roadNameUI ? 25 : 0;
+  offset += showAlwaysOnLateralStatusBar || showConditionalExperimentalStatusBar ? 25 : 0;
   int y = height() - offset;
   float opacity = dmActive ? 0.65 : 0.2;
   drawIcon(painter, QPoint(x, y), dm_img, blackColor(70), opacity);
@@ -860,7 +860,7 @@ void AnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &painter, const UISce
 
   alwaysOnLateralActive = scene.always_on_lateral_active;
   showAlwaysOnLateralStatusBar = scene.show_aol_status_bar;
-  if ((showAlwaysOnLateralStatusBar || showConditionalExperimentalStatusBar || roadNameUI) && !bigMapOpen) {
+  if ((showAlwaysOnLateralStatusBar || showConditionalExperimentalStatusBar) && !bigMapOpen) {
     drawStatusBar(painter);
   }
 
@@ -937,8 +937,6 @@ void AnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &painter, const UISce
   recorder->setVisible(scene.screen_recorder && !mapOpen);
 
   reverseCruise = scene.reverse_cruise;
-
-  roadNameUI = scene.road_name_ui;
 
   speedLimitController = scene.speed_limit_controller;
   showSLCOffset = speedLimitController && scene.show_slc_offset;
@@ -1284,7 +1282,6 @@ void AnnotatedCameraWidget::drawStatusBar(QPainter &p) {
   constexpr qreal fadeDuration = 1500.0;
   constexpr qreal textDuration = 5000.0;
 
-  static qreal roadNameOpacity = 0.0;
   static qreal statusTextOpacity = 0.0;
 
   QString newStatus;
@@ -1336,9 +1333,7 @@ void AnnotatedCameraWidget::drawStatusBar(QPainter &p) {
     }
   }
 
-  QString roadName = roadNameUI ? QString::fromStdString(paramsMemory.get("RoadName")) : QString();
-
-  if (newStatus != lastShownStatus || roadName.isEmpty()) {
+  if (newStatus != lastShownStatus) {
     lastShownStatus = newStatus;
     displayStatusText = true;
     timer.restart();
@@ -1348,9 +1343,7 @@ void AnnotatedCameraWidget::drawStatusBar(QPainter &p) {
 
   if (displayStatusText) {
     statusTextOpacity = qBound(0.0, 1.0 - (timer.elapsed() - textDuration) / fadeDuration, 1.0);
-    roadNameOpacity = 1.0 - statusTextOpacity;
   } else {
-    roadNameOpacity = qBound(0.0, timer.elapsed() / fadeDuration, 1.0);
     statusTextOpacity = 0.0;
   }
 
@@ -1363,13 +1356,6 @@ void AnnotatedCameraWidget::drawStatusBar(QPainter &p) {
   textRect.moveBottom(statusBarRect.bottom() - 50);
   p.drawText(textRect, Qt::AlignCenter | Qt::TextWordWrap, newStatus);
 
-  if (!roadName.isEmpty()) {
-    p.setOpacity(roadNameOpacity);
-    textRect = p.fontMetrics().boundingRect(statusBarRect, Qt::AlignCenter | Qt::TextWordWrap, roadName);
-    textRect.moveBottom(statusBarRect.bottom() - 50);
-    p.drawText(textRect, Qt::AlignCenter | Qt::TextWordWrap, roadName);
-  }
-
   p.restore();
 }
 
@@ -1379,7 +1365,7 @@ void AnnotatedCameraWidget::drawTurnSignals(QPainter &p) {
 
   p.setRenderHint(QPainter::Antialiasing);
 
-  int baseYPosition = (height() - signalHeight) / 2 + (showAlwaysOnLateralStatusBar || showConditionalExperimentalStatusBar || roadNameUI ? 225 : 300) - alertSize;
+  int baseYPosition = (height() - signalHeight) / 2 + (showAlwaysOnLateralStatusBar || showConditionalExperimentalStatusBar ? 225 : 300) - alertSize;
   int leftSignalXPosition = 75 + width() - signalWidth - 300 * (blindSpotLeft ? 0 : animationFrameIndex);
   int rightSignalXPosition = -75 + 300 * (blindSpotRight ? 0 : animationFrameIndex);
 

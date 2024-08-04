@@ -121,7 +121,6 @@ private:
   bool mapOpen;
   bool onroadDistanceButton;
   bool reverseCruise;
-  bool roadNameUI;
   bool showAlwaysOnLateralStatusBar;
   bool showConditionalExperimentalStatusBar;
   bool showSLCOffset;
