@@ -253,11 +253,6 @@ static void update_state(UIState *s) {
     auto deviceState = sm["deviceState"].getDeviceState();
     scene.online = deviceState.getNetworkType() != cereal::DeviceState::NetworkType::NONE;
   }
-  if (sm.updated("frogpilotCarControl")) {
-    auto frogpilotCarControl = sm["frogpilotCarControl"].getFrogpilotCarControl();
-    scene.always_on_lateral_active = !scene.enabled && frogpilotCarControl.getAlwaysOnLateral();
-    scene.speed_limit_changed = scene.speed_limit_controller && frogpilotCarControl.getSpeedLimitChanged();
-  }
   if (sm.updated("frogpilotCarState")) {
     auto frogpilotCarState = sm["frogpilotCarState"].getFrogpilotCarState();
     scene.brake_lights_on = frogpilotCarState.getBrakeLights();
@@ -268,6 +263,7 @@ static void update_state(UIState *s) {
     scene.acceleration_jerk = frogpilotPlan.getAccelerationJerk();
     scene.acceleration_jerk_difference = frogpilotPlan.getAccelerationJerkStock() - scene.acceleration_jerk;
     scene.adjusted_cruise = frogpilotPlan.getAdjustedCruise();
+    scene.always_on_lateral_active = !scene.enabled && frogpilotPlan.getAlwaysOnLateralActive ();
     scene.desired_follow = frogpilotPlan.getDesiredFollowDistance();
     scene.lane_width_left = frogpilotPlan.getLaneWidthLeft();
     scene.lane_width_right = frogpilotPlan.getLaneWidthRight();
@@ -277,6 +273,7 @@ static void update_state(UIState *s) {
     scene.speed_jerk = frogpilotPlan.getSpeedJerk();
     scene.speed_jerk_difference = frogpilotPlan.getSpeedJerkStock() - scene.speed_jerk;
     scene.speed_limit = frogpilotPlan.getSlcSpeedLimit();
+    scene.speed_limit_changed = scene.speed_limit_controller && frogpilotPlan.getSpeedLimitChanged();
     scene.speed_limit_offset = frogpilotPlan.getSlcSpeedLimitOffset();
     scene.speed_limit_overridden = frogpilotPlan.getSlcOverridden();
     scene.speed_limit_overridden_speed = frogpilotPlan.getSlcOverriddenSpeed();
@@ -335,6 +332,15 @@ void ui_update_frogpilot_params(UIState *s, Params &params) {
   bool always_on_lateral = params.getBool("AlwaysOnLateral");
   scene.show_aol_status_bar = always_on_lateral && !params.getBool("HideAOLStatusBar");
 
+  bool bonus_content = params.getBool("BonusContent");
+  scene.holiday_themes = bonus_content && params.getBool("HolidayThemes");
+  bool personalize_openpilot = bonus_content && params.getBool("PersonalizeOpenpilot");
+  scene.custom_colors = personalize_openpilot ? params.getInt("CustomColors") : 0;
+  scene.custom_icons = personalize_openpilot ? params.getInt("CustomIcons") : 0;
+  scene.custom_signals = personalize_openpilot ? params.getInt("CustomSignals") : 0;
+  scene.map_style = personalize_openpilot ? params.getInt("MapStyle") : 0;
+  scene.random_events = bonus_content && params.getBool("RandomEvents");
+
   scene.conditional_experimental = scene.longitudinal_control && params.getBool("ConditionalExperimental");
   scene.conditional_speed = scene.conditional_experimental ? params.getInt("CESpeed") : 0;
   scene.conditional_speed_lead = scene.conditional_experimental ? params.getInt("CESpeedLead") : 0;
@@ -354,14 +360,6 @@ void ui_update_frogpilot_params(UIState *s, Params &params) {
   scene.rotating_wheel = custom_onroad_ui && params.getBool("RotatingWheel");
   scene.show_stopping_point = custom_onroad_ui && params.getBool("ShowStoppingPoint");
   scene.show_stopping_point_metrics = scene.show_stopping_point && params.getBool("ShowStoppingPointMetrics");
-  scene.wheel_icon = custom_onroad_ui ? params.getInt("WheelIcon") : 0;
-
-  bool custom_theme = params.getBool("CustomTheme");
-  scene.custom_colors = custom_theme ? params.getInt("CustomColors") : 0;
-  scene.custom_icons = custom_theme ? params.getInt("CustomIcons") : 0;
-  scene.custom_signals = custom_theme ? params.getInt("CustomSignals") : 0;
-  scene.holiday_themes = custom_theme && params.getBool("HolidayThemes");
-  scene.random_events = custom_theme && params.getBool("RandomEvents");
 
   bool developer_ui = params.getBool("DeveloperUI");
   bool border_metrics = developer_ui && params.getBool("BorderMetrics");
@@ -424,7 +422,6 @@ void ui_update_frogpilot_params(UIState *s, Params &params) {
   scene.driver_camera = quality_of_life_visuals && params.getBool("DriverCamera");
   scene.hide_speed = quality_of_life_visuals && params.getBool("HideSpeed");
   scene.hide_speed_ui = scene.hide_speed && params.getBool("HideSpeedUI");
-  scene.map_style = quality_of_life_visuals ? params.getInt("MapStyle") : 0;
   scene.stopped_timer = quality_of_life_visuals && params.getBool("StoppedTimer");
   scene.wheel_speed = quality_of_life_visuals && params.getBool("WheelSpeed");
 
@@ -469,7 +466,7 @@ void UIState::updateStatus() {
     scene.wake_up_screen = controls_state.getAlertStatus() != cereal::ControlsState::AlertStatus::NORMAL || status != previous_status;
   }
 
-  scene.started |= paramsMemory.getBool("ForceOnroad");
+  scene.started |= scene.force_onroad;
   scene.started &= !paramsMemory.getBool("ForceOffroad");
 
   // Handle onroad/offroad transition
@@ -494,8 +491,7 @@ UIState::UIState(QObject *parent) : QObject(parent) {
     "modelV2", "controlsState", "liveCalibration", "radarState", "deviceState",
     "pandaStates", "carParams", "driverMonitoringState", "carState", "liveLocationKalman", "driverStateV2",
     "wideRoadCameraState", "managerState", "navInstruction", "navRoute", "uiPlan", "clocks",
-    "carControl", "liveTorqueParameters",
-    "frogpilotCarControl", "frogpilotCarState", "frogpilotDeviceState", "frogpilotPlan",
+    "carControl", "liveTorqueParameters", "frogpilotCarState", "frogpilotDeviceState", "frogpilotPlan",
   });
 
   Params params;
@@ -544,8 +540,8 @@ void UIState::update() {
   // FrogPilot variables that need to be constantly updated
   scene.conditional_status = scene.conditional_experimental && scene.enabled ? paramsMemory.getInt("CEStatus") : 0;
   scene.current_holiday_theme = scene.holiday_themes ? paramsMemory.getInt("CurrentHolidayTheme") : 0;
-  scene.current_random_event = scene.random_events ? paramsMemory.getInt("CurrentRandomEvent") : 0;
   scene.driver_camera_timer = scene.driver_camera && scene.reverse ? scene.driver_camera_timer + 1 : 0;
+  scene.force_onroad = paramsMemory.getBool("ForceOnroad");
   scene.started_timer = scene.started || started_prev ? scene.started_timer + 1 : 0;
 }
 

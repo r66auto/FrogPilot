@@ -241,6 +241,22 @@ public:
     }
   }
 
+  void setButtonEnabled(int id, bool enable) {
+    if (QPushButton *button = qobject_cast<QPushButton *>(button_group->button(id))) {
+      button->setEnabled(enable);
+    }
+  }
+
+  void setText(int id, const QString &text) {
+    if (QPushButton *button = qobject_cast<QPushButton *>(button_group->button(id))) {
+      button->setText(text);
+    }
+  }
+
+  QPushButton *getButton(int id) const {
+    return qobject_cast<QPushButton *>(button_group->button(id));
+  }
+
 signals:
   void buttonClicked(int id);
 

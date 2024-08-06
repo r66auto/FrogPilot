@@ -19,18 +19,6 @@ void drawIcon(QPainter &p, const QPoint &center, const QPixmap &img, const QBrus
   p.restore();
 }
 
-void drawIconGif(QPainter &p, const QPoint &center, const QMovie &img, const QBrush &bg, float opacity) {
-  p.setRenderHint(QPainter::Antialiasing);
-  p.setOpacity(1.0);  // bg dictates opacity of ellipse
-  p.setPen(Qt::NoPen);
-  p.setBrush(bg);
-  p.drawEllipse(center.x() - btn_size / 2, center.y() - btn_size / 2, btn_size, btn_size);
-  p.setOpacity(opacity);
-  QPixmap currentFrame = img.currentPixmap();
-  p.drawPixmap(center - QPoint(currentFrame.width() / 2, currentFrame.height() / 2), currentFrame);
-  p.setOpacity(1.0);
-}
-
 // ExperimentalButton
 ExperimentalButton::ExperimentalButton(QWidget *parent) : experimental_mode(false), engageable(false), QPushButton(parent) {
   setFixedSize(btn_size, btn_size + 10);
@@ -39,21 +27,24 @@ ExperimentalButton::ExperimentalButton(QWidget *parent) : experimental_mode(fals
   experimental_img = loadPixmap("../assets/img_experimental.svg", {img_size, img_size});
   QObject::connect(this, &QPushButton::clicked, this, &ExperimentalButton::changeMode);
 
-  wheelImages = {
-    {0, loadPixmap("../assets/img_chffr_wheel.png", {img_size, img_size})},
-    {1, loadPixmap("../frogpilot/assets/wheel_images/lexus.png", {img_size, img_size})},
-    {2, loadPixmap("../frogpilot/assets/wheel_images/toyota.png", {img_size, img_size})},
-    {3, loadPixmap("../frogpilot/assets/wheel_images/frog.png", {img_size, img_size})},
-    {4, loadPixmap("../frogpilot/assets/wheel_images/rocket.png", {img_size, img_size})},
-    {5, loadPixmap("../frogpilot/assets/wheel_images/hyundai.png", {img_size, img_size})},
-    {6, loadPixmap("../frogpilot/assets/wheel_images/stalin.png", {img_size, img_size})},
-  };
+  // FrogPilot variables
+  wheelGifPath = "../frogpilot/assets/active_theme/images/wheel.gif";
+  wheelPngPath = "../frogpilot/assets/active_theme/images/wheel.png";
 
-  wheelImagesGif = {
-    {0, new QMovie("../frogpilot/assets/random_events/images/firefox.gif", QByteArray(), this)},
-    {1, new QMovie("../frogpilot/assets/random_events/images/weeb_wheel.gif", QByteArray(), this)},
-    {2, new QMovie("../frogpilot/assets/random_events/images/tree_fiddy.gif", QByteArray(), this)},
-    {3, new QMovie("../frogpilot/assets/random_events/images/great_scott.gif", QByteArray(), this)},
+  gifFile.setFileName(wheelGifPath);
+  pngFile.setFileName(wheelPngPath);
+
+  gifLabel = new QLabel(this);
+  gifLabel->setScaledContents(true);
+  updateIcon();
+
+  status_color_map = {
+    {"default", QColor(0, 0, 0, 166)},
+    {"always_on_lateral_active", bg_colors[STATUS_ALWAYS_ON_LATERAL_ACTIVE]},
+    {"conditional_overridden", bg_colors[STATUS_CONDITIONAL_OVERRIDDEN]},
+    {"experimental_mode_active", bg_colors[STATUS_EXPERIMENTAL_MODE_ACTIVE]},
+    {"navigation_active", bg_colors[STATUS_NAVIGATION_ACTIVE]},
+    {"traffic_mode_active", bg_colors[STATUS_TRAFFIC_MODE_ACTIVE]}
   };
 }
 
@@ -63,7 +54,7 @@ void ExperimentalButton::changeMode() {
   if (can_change) {
     if (conditionalExperimental) {
       int override_value = (conditionalStatus >= 1 && conditionalStatus <= 6) ? 0 : conditionalStatus >= 7 ? 5 : 6;
-      paramsMemory.putIntNonBlocking("CEStatus", override_value);
+      paramsMemory.putInt("CEStatus", override_value);
     } else {
       params.putBool("ExperimentalMode", !experimental_mode);
     }
@@ -72,7 +63,7 @@ void ExperimentalButton::changeMode() {
 
 void ExperimentalButton::updateState(const UIState &s, bool leadInfo) {
   const auto cs = (*s.sm)["controlsState"].getControlsState();
-  bool eng = cs.getEngageable() || cs.getEnabled() || s.scene.always_on_lateral_active;
+  bool eng = cs.getEngageable() || cs.getEnabled() || alwaysOnLateralActive;
   if ((cs.getExperimentalMode() != experimental_mode) || (eng != engageable)) {
     engageable = eng;
     experimental_mode = cs.getExperimentalMode();
@@ -88,62 +79,80 @@ void ExperimentalButton::updateState(const UIState &s, bool leadInfo) {
   conditionalStatus = scene.conditional_status;
   mapOpen = scene.map_open;
   navigateOnOpenpilot = scene.navigate_on_openpilot;
-  randomEvent = scene.current_random_event;
   rotatingWheel = scene.rotating_wheel;
   trafficModeActive = scene.traffic_mode_active;
-  wheelIcon = scene.wheel_icon;
-  wheelIconGif = 0;
   y_offset = leadInfo ? 10 : 0;
 
-  if (randomEvent == 0 && gifLabel) {
-    delete gifLabel;
-    gifLabel = nullptr;
-  } else if (randomEvent == 1 || randomEvent == 2 || randomEvent == 3 || randomEvent == 4) {
-    gifLabel = new QLabel(this);
-
-    QMovie *movie = wheelImagesGif[randomEvent - 1];
-    if (movie) {
-      movie->setScaledSize(QSize(img_size, img_size));
-      gifLabel->setMovie(movie);
-      gifLabel->move((width() - gifLabel->width()) / 2, (height() - gifLabel->height()) / 2 + y_offset);
-      gifLabel->movie()->start();
-    }
-
-    wheelIconGif = randomEvent - 1;
-    update();
-  } else if (rotatingWheel && steeringAngleDeg != scene.steering_angle_deg) {
+  if (rotatingWheel && steeringAngleDeg != scene.steering_angle_deg) {
     steeringAngleDeg = scene.steering_angle_deg;
     update();
   } else if (!rotatingWheel) {
     steeringAngleDeg = 0;
   }
+
+  if (paramsMemory.getBool("UpdateWheelImage")) {
+    updateIcon();
+    update();
+    paramsMemory.putBool("UpdateWheelImage", false);
+  }
+}
+
+void ExperimentalButton::updateBackgroundColor() {
+  if (!imageEmpty && !isDown() && engageable) {
+    if (alwaysOnLateralActive) {
+      background_color = status_color_map["always_on_lateral_active"];
+    } else if (conditionalStatus == 1 || conditionalStatus == 3 || conditionalStatus == 5) {
+      background_color = status_color_map["conditional_overridden"];
+    } else if (experimental_mode) {
+      background_color = status_color_map["experimental_mode_active"];
+    } else if (navigateOnOpenpilot) {
+      background_color = status_color_map["navigation_active"];
+    } else if (trafficModeActive) {
+      background_color = status_color_map["traffic_mode_active"];
+    } else {
+      background_color = status_color_map["default"];
+    }
+  } else {
+    background_color = status_color_map["default"];
+  }
+}
+
+void ExperimentalButton::updateIcon() {
+  if (gifFile.exists()) {
+    if (!movie) {
+      movie = new QMovie(wheelGifPath);
+      gifLabel->setMovie(movie);
+    } else {
+      movie->stop();
+      movie->setFileName(wheelGifPath);
+    }
+    movie->start();
+
+    gifLabel->show();
+    gifLabel->resize(img_size, img_size);
+    gifLabel->move((btn_size - img_size) / 2, (btn_size - img_size) / 2 + y_offset);
+
+    imageEmpty = false;
+    useGif = true;
+  } else if (pngFile.exists()) {
+    img = loadPixmap(wheelPngPath, {img_size, img_size});
+    gifLabel->hide();
+    imageEmpty = false;
+    useGif = false;
+  } else {
+    imageEmpty = true;
+    useGif = false;
+  }
 }
 
 void ExperimentalButton::paintEvent(QPaintEvent *event) {
-  if (wheelIcon < 0) {
+  if (bigMap && mapOpen || imageEmpty || useGif) {
     return;
   }
 
   QPainter p(this);
-  engage_img = wheelImages[wheelIcon];
-  QPixmap img = wheelIcon != 0 ? engage_img : (experimental_mode ? experimental_img : engage_img);
-  QMovie *gif = wheelImagesGif[wheelIconGif];
-
-  QColor background_color = wheelIcon != 0 && !isDown() && engageable ?
-    (alwaysOnLateralActive ? bg_colors[STATUS_ALWAYS_ON_LATERAL_ACTIVE] :
-    (conditionalStatus == 1 || conditionalStatus == 3 || conditionalStatus == 5 ? bg_colors[STATUS_CONDITIONAL_OVERRIDDEN] :
-    (experimental_mode ? bg_colors[STATUS_EXPERIMENTAL_MODE_ACTIVE] :
-    (trafficModeActive ? bg_colors[STATUS_TRAFFIC_MODE_ACTIVE] :
-    (navigateOnOpenpilot ? bg_colors[STATUS_NAVIGATION_ACTIVE] : QColor(0, 0, 0, 166)))))) :
-    QColor(0, 0, 0, 166);
-
-  if (!(bigMap && mapOpen)) {
-    if (wheelIconGif != 0) {
-      drawIconGif(p, QPoint(btn_size / 2, btn_size / 2 + y_offset), *gif, background_color, 1.0);
-    } else {
-      drawIcon(p, QPoint(btn_size / 2, btn_size / 2 + y_offset), img, background_color, (isDown() || !engageable) ? 0.6 : 1.0, steeringAngleDeg);
-    }
-  }
+  updateBackgroundColor();
+  drawIcon(p, QPoint(btn_size / 2, btn_size / 2 + y_offset), img, background_color, (isDown() || !engageable) ? 0.6 : 1.0, steeringAngleDeg);
 }
 
 // MapSettingsButton

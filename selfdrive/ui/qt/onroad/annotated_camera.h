@@ -153,7 +153,6 @@ private:
   int conditionalSpeedLead;
   int conditionalStatus;
   int currentHolidayTheme;
-  int currentRandomEvent;
   int customColors;
   int customSignals;
   int desiredFollow;

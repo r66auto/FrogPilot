@@ -26,28 +26,42 @@ private:
   bool experimental_mode;
   bool engageable;
 
+  // FrogPilot widgets
+  void updateBackgroundColor();
+  void updateIcon();
+
   // FrogPilot variables
+  Params paramsMemory{"/dev/shm/params"};
+
+  QColor background_color;
+
+  QFile gifFile;
+  QFile pngFile;
+
+  QLabel *gifLabel;
+
+  QMovie *movie;
+
+  QPixmap img;
+
+  QString wheelGifPath;
+  QString wheelPngPath;
+
+  std::map<std::string, QColor> status_color_map;
+
   bool alwaysOnLateralActive;
   bool bigMap;
   bool conditionalExperimental;
+  bool imageEmpty;
   bool mapOpen;
   bool navigateOnOpenpilot;
   bool rotatingWheel;
   bool trafficModeActive;
+  bool useGif;
 
   int conditionalStatus;
-  int randomEvent;
   int steeringAngleDeg;
-  int wheelIcon;
-  int wheelIconGif;
   int y_offset;
-
-  QLabel *gifLabel;
-
-  QMap<int, QPixmap> wheelImages;
-  QMap<int, QMovie*> wheelImagesGif;
-
-  Params paramsMemory{"/dev/shm/params"};
 };
 
 

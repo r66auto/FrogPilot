@@ -142,6 +142,7 @@ typedef struct UIScene {
   bool experimental_mode;
   bool experimental_mode_via_screen;
   bool fahrenheit;
+  bool force_onroad;
   bool full_map;
   bool has_auto_tune;
   bool has_lead;
@@ -241,7 +242,6 @@ typedef struct UIScene {
   int conditional_speed_lead;
   int conditional_status;
   int current_holiday_theme;
-  int current_random_event;
   int custom_colors;
   int custom_icons;
   int custom_signals;
@@ -259,7 +259,6 @@ typedef struct UIScene {
   int steering_angle_deg;
   int stopped_equivalence;
   int tethering_config;
-  int wheel_icon;
 
   QPolygonF track_adjacent_vertices[6];
   QPolygonF track_edge_vertices;

@@ -10,6 +10,7 @@ from openpilot.system.hardware import HARDWARE
 
 from openpilot.selfdrive.frogpilot.controls.frogpilot_planner import FrogPilotPlanner
 from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_functions import backup_toggles, is_url_pingable
+from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_tracking import FrogPilotTracking
 from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_variables import FrogPilotVariables
 from openpilot.selfdrive.frogpilot.controls.lib.model_manager import DEFAULT_MODEL, DEFAULT_MODEL_NAME, download_all_models, download_model, update_models
 from openpilot.selfdrive.frogpilot.controls.lib.theme_manager import ThemeManager
@@ -20,9 +21,11 @@ locks = {
   "backup_toggles": threading.Lock(),
   "download_all_models": threading.Lock(),
   "download_model": threading.Lock(),
+  "download_wheel": threading.Lock(),
   "time_checks": threading.Lock(),
   "update_frogpilot_params": threading.Lock(),
-  "update_models": threading.Lock()
+  "update_models": threading.Lock(),
+  "update_themes": threading.Lock()
 }
 
 running_threads = {}
@@ -96,6 +99,7 @@ def frogpilot_thread():
   params_storage = Params("/persist/params")
 
   frogpilot_planner = FrogPilotPlanner()
+  frogpilot_tracking = FrogPilotTracking()
   theme_manager = ThemeManager()
 
   run_time_checks = False
@@ -117,11 +121,14 @@ def frogpilot_thread():
 
     if not started and started_previously:
       frogpilot_planner = FrogPilotPlanner()
+      frogpilot_tracking = FrogPilotTracking()
 
     if started and sm.updated['modelV2']:
       frogpilot_planner.update(sm['carState'], sm['controlsState'], sm['frogpilotCarControl'], sm['frogpilotCarState'],
                                sm['frogpilotNavigation'], sm['modelV2'], sm['radarState'], frogpilot_toggles)
       frogpilot_planner.publish(sm, pm, frogpilot_toggles)
+
+      frogpilot_tracking.update(sm['carState'])
 
     model_to_download = params_memory.get("ModelToDownload", encoding='utf-8')
     if model_to_download:
@@ -129,6 +136,10 @@ def frogpilot_thread():
 
     if params_memory.get_bool("DownloadAllModels"):
       run_thread_with_lock("download_all_models", locks["download_all_models"], download_all_models, (params, params_memory))
+
+    wheel_to_download = params_memory.get("WheelToDownload", encoding='utf-8')
+    if wheel_to_download:
+      run_thread_with_lock("download_wheel", locks["download_wheel"], theme_manager.download_wheel, (wheel_to_download, "Steering-Wheels"))
 
     if FrogPilotVariables.toggles_updated:
       update_toggles = True
@@ -150,6 +161,7 @@ def frogpilot_thread():
       run_time_checks = True
     elif run_time_checks or not time_validated:
       run_thread_with_lock("time_checks", locks["time_checks"], time_checks, (frogpilot_toggles.automatic_updates, deviceState, now, started, params, params_memory))
+      run_thread_with_lock("update_themes", locks["update_themes"], theme_manager.update_themes, ("Steering-Wheels",))
       run_time_checks = False
 
       if not time_validated:
@@ -157,6 +169,7 @@ def frogpilot_thread():
         if not time_validated:
           continue
         run_thread_with_lock("update_models", locks["update_models"], update_models, (params, params_memory))
+        run_thread_with_lock("update_themes", locks["update_themes"], theme_manager.update_themes, ("Steering-Wheels",))
 
       theme_manager.update_holiday()
 

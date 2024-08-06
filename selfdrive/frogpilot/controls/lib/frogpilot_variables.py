@@ -9,7 +9,7 @@ from openpilot.common.params import Params
 from openpilot.selfdrive.controls.lib.desire_helper import LANE_CHANGE_SPEED_MIN
 from openpilot.system.version import get_build_metadata
 
-from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_functions import MODELS_PATH
+from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_functions import MODELS_PATH, update_wheel_image
 from openpilot.selfdrive.frogpilot.controls.lib.model_manager import DEFAULT_MODEL, DEFAULT_MODEL_NAME, process_model_name
 
 CITY_SPEED_LIMIT = 25  # 55mph is typically the minimum speed for highways
@@ -46,13 +46,11 @@ class FrogPilotVariables:
 
     if msg_bytes:
       with car.CarParams.from_bytes(msg_bytes) as CP:
-        always_on_lateral_set = self.params.get_bool("AlwaysOnLateralSet")
         car_make = CP.carName
         car_model = CP.carFingerprint
         openpilot_longitudinal = CP.openpilotLongitudinalControl
         pcm_cruise = CP.pcmCruise
     else:
-      always_on_lateral_set = False
       car_make = "mock"
       car_model = "mock"
       openpilot_longitudinal = False
@@ -71,12 +69,22 @@ class FrogPilotVariables:
     toggle.warningSoft_volume = self.params.get_int("WarningSoftVolume") if toggle.alert_volume_control else 100
     toggle.warningImmediate_volume = self.params.get_int("WarningImmediateVolume") if toggle.alert_volume_control else 100
 
-    toggle.always_on_lateral = always_on_lateral_set and self.params.get_bool("AlwaysOnLateral")
+    toggle.always_on_lateral = self.params.get_bool("AlwaysOnLateral") and self.params.get_bool("AlwaysOnLateralSet")
     toggle.always_on_lateral_lkas = toggle.always_on_lateral and self.params.get_bool("AlwaysOnLateralLKAS")
     toggle.always_on_lateral_main = toggle.always_on_lateral and self.params.get_bool("AlwaysOnLateralMain")
     toggle.always_on_lateral_pause_speed = self.params.get_int("PauseAOLOnBrake") if toggle.always_on_lateral else 0
 
     toggle.automatic_updates = self.params.get_bool("AutomaticUpdates")
+
+    bonus_content = self.params.get_bool("BonusContent")
+    holiday_themes = bonus_content and self.params.get_bool("HolidayThemes")
+    personalize_openpilot = bonus_content and self.params.get_bool("PersonalizeOpenpilot")
+    toggle.custom_sounds = self.params.get_int("CustomSounds") if personalize_openpilot else 0
+    toggle.current_holiday_theme = self.params_memory.get_int("CurrentHolidayTheme") if holiday_themes else 0
+    toggle.goat_scream = bonus_content and self.params.get_bool("GoatScream")
+    toggle.wheel_image = self.params.get("WheelIcon", encoding='utf-8') if personalize_openpilot else "img_chffr_wheel"
+    update_wheel_image(toggle.wheel_image, self.params_memory, False)
+    toggle.random_events = bonus_content and self.params.get_bool("RandomEvents")
 
     toggle.cluster_offset = self.params.get_float("ClusterOffset") if car_make == "toyota" else 1
 
@@ -100,13 +108,6 @@ class FrogPilotVariables:
     toggle.green_light_alert = custom_alerts and self.params.get_bool("GreenLightAlert")
     toggle.lead_departing_alert = custom_alerts and self.params.get_bool("LeadDepartingAlert")
     toggle.loud_blindspot_alert = custom_alerts and self.params.get_bool("LoudBlindspotAlert")
-
-    custom_themes = self.params.get_bool("CustomTheme")
-    holiday_themes = custom_themes and self.params.get_bool("HolidayThemes")
-    toggle.current_holiday_theme = self.params_memory.get_int("CurrentHolidayTheme") if holiday_themes else 0
-    toggle.custom_sounds = self.params.get_int("CustomSounds") if custom_themes else 0
-    toggle.goat_scream = toggle.current_holiday_theme == 0 and toggle.custom_sounds == 1 and self.params.get_bool("GoatScream")
-    toggle.random_events = custom_themes and self.params.get_bool("RandomEvents")
 
     custom_ui = self.params.get_bool("CustomUI")
     custom_paths = custom_ui and self.params.get_bool("CustomPaths")

@@ -3,7 +3,6 @@ from openpilot.selfdrive.modeld.constants import ModelConstants
 
 from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_functions import MovingAverageCalculator
 from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_variables import CITY_SPEED_LIMIT, PROBABILITY
-from openpilot.selfdrive.frogpilot.controls.lib.speed_limit_controller import SpeedLimitController
 
 MODEL_LENGTH = ModelConstants.IDX_N
 PLANNER_TIME = ModelConstants.T_IDXS[MODEL_LENGTH - 1]
@@ -60,10 +59,10 @@ class ConditionalExperimentalMode:
       return True
 
     if frogpilot_toggles.conditional_stop_lights and self.stop_light_detected:
-      self.status_value = 15 if not self.frogpilot_planner.forcing_stop else 16
+      self.status_value = 15 if not self.frogpilot_planner.frogpilot_vcruise.forcing_stop else 16
       return True
 
-    if SpeedLimitController.experimental_mode:
+    if self.frogpilot_planner.frogpilot_vcruise.slc.experimental_mode:
       self.status_value = 17
       return True
 
@@ -83,7 +82,7 @@ class ConditionalExperimentalMode:
 
   def slow_lead(self, tracking_lead, v_lead, frogpilot_toggles):
     if tracking_lead:
-      slower_lead = self.frogpilot_planner.slower_lead and frogpilot_toggles.conditional_slower_lead
+      slower_lead = self.frogpilot_planner.frogpilot_following.slower_lead and frogpilot_toggles.conditional_slower_lead
       stopped_lead = frogpilot_toggles.conditional_stopped_lead and v_lead < 1
 
       self.slow_lead_mac.add_data(slower_lead or stopped_lead)
@@ -93,8 +92,9 @@ class ConditionalExperimentalMode:
       self.slow_lead_detected = False
 
   def stop_sign_and_light(self, tracking_lead, v_ego, frogpilot_toggles):
+    model_filtered = not (self.curve_detected or tracking_lead)
     model_projection = PLANNER_TIME - (5 if frogpilot_toggles.less_sensitive_lights else 3)
     model_stopping = self.frogpilot_planner.model_length < v_ego * model_projection
 
-    self.stop_light_mac.add_data((self.frogpilot_planner.model_stopped or model_stopping) and not (self.curve_detected or tracking_lead))
+    self.stop_light_mac.add_data((self.frogpilot_planner.model_stopped or model_stopping) and model_filtered)
     self.stop_light_detected = self.stop_light_mac.get_moving_average() >= PROBABILITY

@@ -9,31 +9,13 @@ import urllib.request
 
 from openpilot.common.basedir import BASEDIR
 
-from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_functions import MODELS_PATH, delete_file, is_url_pingable
+from openpilot.selfdrive.frogpilot.controls.lib.download_functions import GITHUB_URL, GITLAB_URL, get_remote_file_size, get_repository_url, verify_download
+from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_functions import MODELS_PATH, delete_file
 
 VERSION = "v4"
 
-GITHUB_REPOSITORY_URL = "https://raw.githubusercontent.com/FrogAi/FrogPilot-Resources/"
-GITLAB_REPOSITORY_URL = "https://gitlab.com/FrogAi/FrogPilot-Resources/-/raw/"
-
 DEFAULT_MODEL = "north-dakota-v2"
 DEFAULT_MODEL_NAME = "North Dakota V2 (Default)"
-
-def get_repository_url():
-  if is_url_pingable("https://github.com"):
-    return GITHUB_REPOSITORY_URL
-  if is_url_pingable("https://gitlab.com"):
-    return GITLAB_REPOSITORY_URL
-  return None
-
-def get_remote_file_size(url):
-  try:
-    response = requests.head(url, timeout=5)
-    response.raise_for_status()
-    return int(response.headers.get('Content-Length', 0))
-  except requests.RequestException as e:
-    print(f"Error fetching file size: {e}")
-    return None
 
 def process_model_name(model_name):
   model_cleaned = re.sub(r'[🗺️👀📡]', '', model_name).strip()
@@ -49,16 +31,6 @@ def handle_error(destination, error_message, error, params_memory):
   params_memory.remove("ModelToDownload")
   delete_file(destination)
 
-def verify_download(file_path, model_url):
-  if not os.path.exists(file_path):
-    return False
-
-  remote_file_size = get_remote_file_size(model_url)
-  if remote_file_size is None:
-    return False
-
-  return remote_file_size == os.path.getsize(file_path)
-
 def download_file(destination, url, params_memory):
   try:
     with requests.get(url, stream=True, timeout=5) as r:
@@ -71,10 +43,12 @@ def download_file(destination, url, params_memory):
           if params_memory.get_bool("CancelModelDownload"):
             handle_error(destination, "Download cancelled...", "Download cancelled...", params_memory)
             return
+
           if chunk:
             f.write(chunk)
             downloaded_size += len(chunk)
             progress = (downloaded_size / total_size) * 100
+
             if progress != 100:
               params_memory.put("ModelDownloadProgress", f"{progress:.0f}%")
             else:
@@ -102,7 +76,7 @@ def handle_verification_failure(model, model_path, model_url, params_memory):
     return
 
   handle_error(model_path, "Issue connecting to Github, trying Gitlab", f"Model {model} verification failed. Redownloading from Gitlab...", params_memory)
-  second_model_url = f"{GITLAB_REPOSITORY_URL}Models/{model}.thneed"
+  second_model_url = f"{GITLAB_URL}Models/{model}.thneed"
   download_file(model_path, second_model_url, params_memory)
 
   if verify_download(model_path, second_model_url):
@@ -274,14 +248,17 @@ def download_all_models(params, params_memory):
     if params_memory.get_bool("CancelModelDownload"):
       handle_error(None, "Download cancelled...", "Download cancelled...", params_memory)
       return
-    model_path = os.path.join(MODELS_PATH, f"{model}.thneed")
-    if not os.path.exists(model_path):
+
+    if not os.path.exists(os.path.join(MODELS_PATH, f"{model}.thneed")):
       model_index = available_models.index(model)
       model_name = available_model_names[model_index]
+
       cleaned_model_name = re.sub(r'[🗺️👀📡]', '', model_name).strip()
       print(f"Downloading model: {cleaned_model_name}")
+
       params_memory.put("ModelToDownload", model)
       params_memory.put("ModelDownloadProgress", f"Downloading {cleaned_model_name}...")
+
       while params_memory.get("ModelToDownload", encoding='utf-8') is not None:
         time.sleep(1)
 
@@ -290,6 +267,7 @@ def download_all_models(params, params_memory):
     if params_memory.get_bool("CancelModelDownload"):
       handle_error(None, "Download cancelled...", "Download cancelled...", params_memory)
       return
+
     all_downloaded = all([os.path.exists(os.path.join(MODELS_PATH, f"{model}.thneed")) for model in available_models])
     time.sleep(1)
 
