@@ -139,7 +139,7 @@ def frogpilot_thread():
 
     wheel_to_download = params_memory.get("WheelToDownload", encoding='utf-8')
     if wheel_to_download:
-      run_thread_with_lock("download_wheel", locks["download_wheel"], theme_manager.download_wheel, (wheel_to_download, "Steering-Wheels"))
+      run_thread_with_lock("download_wheel", locks["download_wheel"], theme_manager.download_theme, (wheel_to_download, "Steering-Wheels"))
 
     if FrogPilotVariables.toggles_updated:
       update_toggles = True

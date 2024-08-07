@@ -45,7 +45,7 @@ class FrogPilotVCruise:
       mtsc_active = self.mtsc_target < v_cruise
       self.mtsc_target = clip(self.mtsc.target_speed(v_ego, carState.aEgo), CRUISING_SPEED, v_cruise)
 
-      if frogpilot_toggles.mtsc_curvature_check and self.road_curvature < 1.0 and not mtsc_active:
+      if frogpilot_toggles.mtsc_curvature_check and self.frogpilot_planner.road_curvature < 1.0 and not mtsc_active:
         self.mtsc_target = v_cruise
       if self.mtsc_target == CRUISING_SPEED:
         self.mtsc_target = v_cruise
@@ -110,7 +110,7 @@ class FrogPilotVCruise:
 
     # Pfeiferj's Vision Turn Controller
     if frogpilot_toggles.vision_turn_controller and v_ego > CRUISING_SPEED and controlsState.enabled:
-      adjusted_road_curvature = self.road_curvature * frogpilot_toggles.curve_sensitivity
+      adjusted_road_curvature = self.frogpilot_planner.road_curvature * frogpilot_toggles.curve_sensitivity
       adjusted_target_lat_a = TARGET_LAT_A * frogpilot_toggles.turn_aggressiveness
 
       self.vtsc_target = (adjusted_target_lat_a / adjusted_road_curvature)**0.5

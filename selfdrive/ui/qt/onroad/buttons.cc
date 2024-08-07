@@ -89,12 +89,6 @@ void ExperimentalButton::updateState(const UIState &s, bool leadInfo) {
   } else if (!rotatingWheel) {
     steeringAngleDeg = 0;
   }
-
-  if (paramsMemory.getBool("UpdateWheelImage")) {
-    updateIcon();
-    update();
-    paramsMemory.putBool("UpdateWheelImage", false);
-  }
 }
 
 void ExperimentalButton::updateBackgroundColor() {
@@ -143,6 +137,8 @@ void ExperimentalButton::updateIcon() {
     imageEmpty = true;
     useGif = false;
   }
+
+  update();
 }
 
 void ExperimentalButton::paintEvent(QPaintEvent *event) {

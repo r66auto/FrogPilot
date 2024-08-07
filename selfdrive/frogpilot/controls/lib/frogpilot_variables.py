@@ -26,6 +26,8 @@ class FrogPilotVariables:
     self.has_prime = self.params.get_int("PrimeType") > 0
     self.release = get_build_metadata().release_channel
 
+    self.previous_wheel_image = "img_chffr_wheel"
+
     self.update_frogpilot_params(False)
 
   @property
@@ -83,7 +85,9 @@ class FrogPilotVariables:
     toggle.current_holiday_theme = self.params_memory.get_int("CurrentHolidayTheme") if holiday_themes else 0
     toggle.goat_scream = bonus_content and self.params.get_bool("GoatScream")
     toggle.wheel_image = self.params.get("WheelIcon", encoding='utf-8') if personalize_openpilot else "img_chffr_wheel"
-    update_wheel_image(toggle.wheel_image, self.params_memory, False)
+    if toggle.wheel_image != self.previous_wheel_image:
+      update_wheel_image(toggle.wheel_image, False, False)
+      self.previous_wheel_image = toggle.wheel_image
     toggle.random_events = bonus_content and self.params.get_bool("RandomEvents")
 
     toggle.cluster_offset = self.params.get_float("ClusterOffset") if car_make == "toyota" else 1

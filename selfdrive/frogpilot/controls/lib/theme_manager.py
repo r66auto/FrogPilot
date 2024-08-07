@@ -8,7 +8,7 @@ from openpilot.common.basedir import BASEDIR
 from openpilot.common.params import Params
 
 from openpilot.selfdrive.frogpilot.controls.lib.download_functions import GITHUB_URL, GITLAB_URL, get_remote_file_size, get_repository_url, verify_download
-from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_functions import THEME_SAVE_PATH, delete_file, update_frogpilot_toggles
+from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_functions import THEME_SAVE_PATH, delete_file, update_frogpilot_toggles, update_wheel_image
 
 class ThemeManager:
   def __init__(self):
@@ -69,6 +69,7 @@ class ThemeManager:
       if holiday.endswith("_week") and self.is_within_week_of(date, current_date) or current_date.date() == date.date():
         if theme_id != self.previous_theme_id:
           self.params_memory.put_int("CurrentHolidayTheme", theme_id)
+          update_wheel_image(theme_id, True, False)
           update_frogpilot_toggles()
         self.previous_theme_id = theme_id
         return
@@ -120,84 +121,88 @@ class ThemeManager:
     except Exception as e:
       self.handle_error(destination, "Failed: Unexpected error.", e)
 
-  def handle_existing_wheel(self, wheel):
-    print(f"Wheel {wheel} already exists, skipping download...")
-    self.params_memory.put("WheelDownloadProgress", "Wheel already exists...")
+  def handle_existing_theme(self, theme):
+    print(f"Theme {theme} already exists, skipping download...")
+    self.params_memory.put("WheelDownloadProgress", "Theme already exists...")
     self.params_memory.remove("WheelToDownload")
 
-  def handle_verification_failure(self, wheel, wheel_path, wheel_url):
+  def handle_verification_failure(self, theme, theme_path, theme_url):
     if self.params_memory.get_bool("CancelWheelDownload"):
-      self.handle_error(wheel_path, "Download cancelled...", "Download cancelled...")
+      self.handle_error(theme_path, "Download cancelled...", "Download cancelled...")
       return
 
-    self.handle_error(wheel_path, "Issue connecting to Github, trying Gitlab", f"Wheel {wheel} verification failed. Redownloading from Gitlab...")
-    second_wheel_url = f"{GITLAB_URL}Steering-Wheels/{wheel}"
-    self.download_file(wheel_path, second_wheel_url)
+    self.handle_error(theme_path, "Issue connecting to Github, trying Gitlab", f"Theme {Theme} verification failed. Redownloading from Gitlab...")
+    second_theme_url = f"{GITLAB_URL}Steering-Wheels/{Theme}"
+    self.download_file(theme_path, second_theme_url)
 
-    if verify_download(wheel_path, second_wheel_url):
-      print(f"Wheel {wheel} redownloaded and verified successfully from Gitlab.")
+    if verify_download(theme_path, second_theme_url):
+      print(f"Theme {Theme} redownloaded and verified successfully from Gitlab.")
     else:
-      print(f"Wheel {wheel} redownload verification failed from Gitlab.")
+      print(f"Theme {Theme} redownload verification failed from Gitlab.")
 
-  def download_wheel(self, wheel_to_download, branch):
-    wheel_to_download = wheel_to_download.lower()
-    wheel_path = os.path.join(THEME_SAVE_PATH, "steering_wheels", wheel_to_download)
+  def download_theme(self, theme_to_download, branch):
+    theme_to_download = theme_to_download.lower().replace(" ", "_")
+    theme_path = os.path.join(THEME_SAVE_PATH, "steering_wheels", theme_to_download)
 
-    if os.path.exists(wheel_path):
-      self.handle_existing_wheel(wheel_to_download)
+    if os.path.exists(theme_path):
+      self.handle_existing_theme(theme_to_download)
       return
 
     repo_url = get_repository_url()
     if repo_url is None:
-      self.handle_error(wheel_path, "Github and Gitlab are offline...", "Github and Gitlab are offline...")
+      self.handle_error(theme_path, "Github and Gitlab are offline...", "Github and Gitlab are offline...")
       return
 
     for ext in [".png", ".gif"]:
-      wheel_url = f"{GITHUB_URL}{branch}/{wheel_to_download}{ext}"
+      theme_url = f"{GITHUB_URL}{branch}/{theme_to_download}{ext}"
       try:
-        self.download_file(wheel_path + ext, wheel_url)
-        if verify_download(wheel_path + ext, wheel_url):
+        self.download_file(theme_path + ext, theme_url)
+        if verify_download(theme_path + ext, theme_url):
           self.update_themes(branch)
-          print(f"Wheel {wheel_to_download} downloaded and verified successfully!")
+          print(f"Theme {theme_to_download} downloaded and verified successfully!")
           self.params_memory.put("WheelDownloadProgress", "Downloaded!")
           self.params_memory.remove("WheelToDownload")
           return
       except Exception as e:
         continue
 
-    self.handle_verification_failure(wheel_to_download, wheel_path, wheel_url)
+    self.handle_verification_failure(theme_to_download, theme_path, theme_url)
 
   @staticmethod
-  def fetch_wheel_files(branch_url, branch_name):
+  def fetch_files(url):
     try:
-      api_url = f"https://api.github.com/repos/{branch_url}/contents?ref={branch_name}"
-      response = requests.get(api_url)
+      response = requests.get(url)
       response.raise_for_status()
-      return [file['name'] for file in response.json()]
-    except Exception as e:
-      print(f"Failed to fetch wheel files. Error: {e}")
+      file_names = re.findall(r'href="[^"]*\/blob\/[^"]*\/([^"]*)"', response.text)
+      file_names = [name for name in file_names if name.lower() != "license"]
+      return file_names
+    except requests.RequestException:
       return []
 
-  def update_wheel_params(self, wheel_files):
+  def update_theme_params(self, theme_files):
     wheel_dir = os.path.join(THEME_SAVE_PATH, "steering_wheels")
     available_files = os.listdir(wheel_dir)
     available_wheels = [wheel.replace('_', ' ').split('.')[0].title() for wheel in available_files if wheel != "img_chffr_wheel.png"]
     available_wheels.extend(["Stock", "None"])
-    available_wheels.sort()
+    available_wheels = sorted(set(available_wheels))
     self.params.put("AvailableWheels", ','.join(available_wheels))
 
-    downloadable_wheels = [wheel.replace('_', ' ').split('.')[0].title() for wheel in wheel_files if wheel.replace('_', ' ').split('.')[0].title() not in available_wheels]
-    downloadable_wheels.sort()
+    downloadable_wheels = [wheel.replace('_', ' ').split('.')[0].title() for wheel in theme_files if wheel.replace('_', ' ').split('.')[0].title() not in available_wheels]
+    downloadable_wheels = sorted(set(downloadable_wheels))
     self.params.put("DownloadableWheels", ','.join(downloadable_wheels))
     print("Wheels list updated successfully.")
 
   def update_themes(self, branch_name):
     repo_url = get_repository_url()
     if repo_url is None:
-      handle_error(None, "Github and Gitlab are offline...", "Github and Gitlab are offline...", params_memory)
+      self.handle_error(None, "Github and Gitlab are offline...", "Github and Gitlab are offline...", params_memory)
       return
 
-    branch_url = "FrogAi/FrogPilot-Resources"
-    wheel_files = self.fetch_wheel_files(branch_url, branch_name)
-    if wheel_files:
-      self.update_wheel_params(wheel_files)
+    theme_files = self.fetch_files(f"https://github.com/FrogAi/FrogPilot-Resources/tree/{branch_name}")
+    if not theme_files:
+      theme_files = self.fetch_files(f"https://gitlab.com/FrogAi/FrogPilot-Resources/-/tree/{branch_name}")
+
+    if theme_files:
+      self.update_theme_params(theme_files)
+    else:
+      print("Failed to update themes from both GitHub and GitLab.")

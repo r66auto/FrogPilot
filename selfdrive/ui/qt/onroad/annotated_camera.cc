@@ -753,6 +753,7 @@ void AnnotatedCameraWidget::showEvent(QShowEvent *event) {
 
   ui_update_params(uiState());
   prev_draw_t = millis_since_boot();
+  experimental_btn->updateIcon();
 }
 
 // FrogPilot widgets

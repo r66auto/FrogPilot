@@ -253,6 +253,10 @@ static void update_state(UIState *s) {
     auto deviceState = sm["deviceState"].getDeviceState();
     scene.online = deviceState.getNetworkType() != cereal::DeviceState::NetworkType::NONE;
   }
+  if (sm.updated("frogpilotCarControl")) {
+    auto frogpilotCarControl = sm["frogpilotCarControl"].getFrogpilotCarControl();
+    scene.always_on_lateral_active = !scene.enabled && frogpilotCarControl.getAlwaysOnLateralActive();
+  }
   if (sm.updated("frogpilotCarState")) {
     auto frogpilotCarState = sm["frogpilotCarState"].getFrogpilotCarState();
     scene.brake_lights_on = frogpilotCarState.getBrakeLights();
@@ -263,7 +267,6 @@ static void update_state(UIState *s) {
     scene.acceleration_jerk = frogpilotPlan.getAccelerationJerk();
     scene.acceleration_jerk_difference = frogpilotPlan.getAccelerationJerkStock() - scene.acceleration_jerk;
     scene.adjusted_cruise = frogpilotPlan.getAdjustedCruise();
-    scene.always_on_lateral_active = !scene.enabled && frogpilotPlan.getAlwaysOnLateralActive ();
     scene.desired_follow = frogpilotPlan.getDesiredFollowDistance();
     scene.lane_width_left = frogpilotPlan.getLaneWidthLeft();
     scene.lane_width_right = frogpilotPlan.getLaneWidthRight();
@@ -338,7 +341,6 @@ void ui_update_frogpilot_params(UIState *s, Params &params) {
   scene.custom_colors = personalize_openpilot ? params.getInt("CustomColors") : 0;
   scene.custom_icons = personalize_openpilot ? params.getInt("CustomIcons") : 0;
   scene.custom_signals = personalize_openpilot ? params.getInt("CustomSignals") : 0;
-  scene.map_style = personalize_openpilot ? params.getInt("MapStyle") : 0;
   scene.random_events = bonus_content && params.getBool("RandomEvents");
 
   scene.conditional_experimental = scene.longitudinal_control && params.getBool("ConditionalExperimental");
@@ -422,6 +424,7 @@ void ui_update_frogpilot_params(UIState *s, Params &params) {
   scene.driver_camera = quality_of_life_visuals && params.getBool("DriverCamera");
   scene.hide_speed = quality_of_life_visuals && params.getBool("HideSpeed");
   scene.hide_speed_ui = scene.hide_speed && params.getBool("HideSpeedUI");
+  scene.map_style = quality_of_life_visuals ? params.getInt("MapStyle") : 0;
   scene.stopped_timer = quality_of_life_visuals && params.getBool("StoppedTimer");
   scene.wheel_speed = quality_of_life_visuals && params.getBool("WheelSpeed");
 
@@ -491,7 +494,8 @@ UIState::UIState(QObject *parent) : QObject(parent) {
     "modelV2", "controlsState", "liveCalibration", "radarState", "deviceState",
     "pandaStates", "carParams", "driverMonitoringState", "carState", "liveLocationKalman", "driverStateV2",
     "wideRoadCameraState", "managerState", "navInstruction", "navRoute", "uiPlan", "clocks",
-    "carControl", "liveTorqueParameters", "frogpilotCarState", "frogpilotDeviceState", "frogpilotPlan",
+    "carControl", "liveTorqueParameters", "frogpilotCarControl", "frogpilotCarState", "frogpilotDeviceState",
+    "frogpilotPlan",
   });
 
   Params params;

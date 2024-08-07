@@ -184,6 +184,7 @@ class Controls:
 
     self.params_memory = Params("/dev/shm/params")
 
+    self.always_on_lateral_active = False
     self.fcw_event_triggered = False
     self.no_entry_alert_triggered = False
     self.onroad_distance_pressed = False
@@ -552,7 +553,7 @@ class Controls:
 
     # Check if openpilot is engaged and actuators are enabled
     self.enabled = self.state in ENABLED_STATES
-    self.active = self.state in ACTIVE_STATES or self.sm['frogpilotPlan'].alwaysOnLateralActive
+    self.active = self.state in ACTIVE_STATES or self.always_on_lateral_active
     if self.active:
       self.current_alert_types.append(ET.WARNING)
 
@@ -707,6 +708,7 @@ class Controls:
     return CC, lac_log, FPCC
 
   def update_frogpilot_variables(self, CS):
+    self.always_on_lateral_active = self.sm['frogpilotPlan'].alwaysOnLateralActive and self.sm.all_checks(['frogpilotPlan'])
     self.experimental_mode = self.sm['frogpilotPlan'].experimentalMode
 
     if any(be.pressed and be.type == FrogPilotButtonType.lkas for be in CS.buttonEvents):
@@ -723,6 +725,7 @@ class Controls:
       self.resume_previously_pressed = self.resume_pressed
 
     FPCC = custom.FrogPilotCarControl.new_message()
+    FPCC.alwaysOnLateralActive = self.always_on_lateral_active
     FPCC.fcwEventTriggered = self.fcw_event_triggered
     FPCC.noEntryEventTriggered = self.no_entry_alert_triggered
     FPCC.resumePressed = self.resume_previously_pressed

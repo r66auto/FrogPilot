@@ -22,7 +22,6 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(SettingsWindow *parent) : FrogPilot
     {"CustomIcons", tr("Icon Pack"), tr("Switch out the standard openpilot icons with a set of themed icons.\n\nWant to submit your own icon pack? Post it in the 'feature-request' channel in the FrogPilot Discord!"), ""},
     {"CustomSounds", tr("Sound Pack"), tr("Switch out the standard openpilot sounds with a set of themed sounds.\n\nWant to submit your own sound pack? Post it in the 'feature-request' channel in the FrogPilot Discord!"), ""},
     {"CustomSignals", tr("Turn Signals"), tr("Add themed animation for your turn signals.\n\nWant to submit your own turn signal animation? Post it in the 'feature-request' channel in the FrogPilot Discord!"), ""},
-    {"MapStyle", tr("Map Style"), tr("Select a map style to use with navigation."), ""},
     {"WheelIcon", tr("Steering Wheel"), tr("Replace the default steering wheel icon with a custom icon."), ""},
     {"DownloadStatusLabel", tr("Download Status"), "", ""},
     {"RandomEvents", tr("Random Events"), tr("Enjoy a bit of unpredictability with random events that can occur during certain driving conditions. This is purely cosmetic and has no impact on driving controls!"), ""},
@@ -63,6 +62,7 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(SettingsWindow *parent) : FrogPilot
     {"CameraView", tr("Camera View"), tr("Choose your preferred camera view for the onroad UI. This is purely a visual change and doesn't impact how openpilot drives."), ""},
     {"DriverCamera", tr("Driver Camera On Reverse"), tr("Show the driver camera feed when in reverse."), ""},
     {"HideSpeed", tr("Hide Speed"), tr("Hide the speed indicator in the onroad UI. Additional toggle allows it to be hidden/shown via tapping the speed itself."), ""},
+    {"MapStyle", tr("Map Style"), tr("Select a map style to use with navigation."), ""},
     {"StoppedTimer", tr("Stopped Timer"), tr("Display a timer in the onroad UI that indicates how long you've been stopped for."), ""},
     {"WheelSpeed", tr("Use Wheel Speed"), tr("Use the wheel speed instead of the cluster speed in the onroad UI."), ""},
 
@@ -118,44 +118,13 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(SettingsWindow *parent) : FrogPilot
       std::vector<QString> themeOptions{tr("Stock"), tr("Frog"), tr("Tesla"), tr("Stalin")};
       FrogPilotButtonParamControl *themeSelection = new FrogPilotButtonParamControl(param, title, desc, icon, themeOptions);
       visualToggle = themeSelection;
-    } else if (param == "MapStyle") {
-      QMap<int, QString> styleMap = {
-        {0, tr("Stock openpilot")},
-        {1, tr("Mapbox Streets")},
-        {2, tr("Mapbox Outdoors")},
-        {3, tr("Mapbox Light")},
-        {4, tr("Mapbox Dark")},
-        {5, tr("Mapbox Satellite")},
-        {6, tr("Mapbox Satellite Streets")},
-        {7, tr("Mapbox Navigation Day")},
-        {8, tr("Mapbox Navigation Night")},
-        {9, tr("Mapbox Traffic Night")},
-        {10, tr("mike854's (Satellite hybrid)")},
-      };
-
-      QStringList styles = styleMap.values();
-      ButtonControl *mapStyleButton = new ButtonControl(title, tr("SELECT"), desc);
-      QObject::connect(mapStyleButton, &ButtonControl::clicked, [=]() {
-        QStringList styles = styleMap.values();
-        QString selection = MultiOptionDialog::getSelection(tr("Select a map style"), styles, "", this);
-        if (!selection.isEmpty()) {
-          int selectedStyle = styleMap.key(selection);
-          params.putIntNonBlocking("MapStyle", selectedStyle);
-          mapStyleButton->setValue(selection);
-          updateFrogPilotToggles();
-        }
-      });
-
-      int currentStyle = params.getInt("MapStyle");
-      mapStyleButton->setValue(styleMap[currentStyle]);
-
-      visualToggle = mapStyleButton;
     } else if (param == "WheelIcon") {
       std::vector<QString> wheelIconOptions{tr("DELETE"), tr("DOWNLOAD"), tr("SELECT")};
       manageWheelIconsBtn = new FrogPilotButtonsControl(title, desc, icon, wheelIconOptions);
       QObject::connect(manageWheelIconsBtn, &FrogPilotButtonsControl::buttonClicked, [=](int id) {
         QDir wheelDir{"/data/themes/steering_wheels"};
         QFileInfoList fileList = wheelDir.entryInfoList(QDir::Files);
+        QString currentImage = QString::fromStdString(params.get("WheelIcon"));
 
         if (id == 0) {
           QStringList steeringWheelList;
@@ -170,7 +139,7 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(SettingsWindow *parent) : FrogPilot
               }
             }
 
-            if (formattedName != "Img Chffr Wheel") {
+            if (formattedName != currentImage && formattedName != "Img Chffr Wheel") {
               steeringWheelList << formattedName;
             }
           }
@@ -227,7 +196,6 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(SettingsWindow *parent) : FrogPilot
           }
         } else if (id == 2) {
           QStringList availableWheels = QString::fromStdString(params.get("AvailableWheels")).split(",");
-          QString currentImage = QString::fromStdString(params.get("WheelIcon"));
 
           QString imageToSelect = MultiOptionDialog::getSelection(tr("Select a steering wheel"), availableWheels, currentImage, this);
           if (!imageToSelect.isEmpty()) {
@@ -384,6 +352,38 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(SettingsWindow *parent) : FrogPilot
       std::vector<QString> hideSpeedToggles{"HideSpeedUI"};
       std::vector<QString> hideSpeedToggleNames{tr("Control Via UI")};
       visualToggle = new FrogPilotParamToggleControl(param, title, desc, icon, hideSpeedToggles, hideSpeedToggleNames);
+    } else if (param == "MapStyle") {
+      QMap<int, QString> styleMap = {
+        {0, tr("Stock openpilot")},
+        {1, tr("Mapbox Streets")},
+        {2, tr("Mapbox Outdoors")},
+        {3, tr("Mapbox Light")},
+        {4, tr("Mapbox Dark")},
+        {5, tr("Mapbox Satellite")},
+        {6, tr("Mapbox Satellite Streets")},
+        {7, tr("Mapbox Navigation Day")},
+        {8, tr("Mapbox Navigation Night")},
+        {9, tr("Mapbox Traffic Night")},
+        {10, tr("mike854's (Satellite hybrid)")},
+      };
+
+      QStringList styles = styleMap.values();
+      ButtonControl *mapStyleButton = new ButtonControl(title, tr("SELECT"), desc);
+      QObject::connect(mapStyleButton, &ButtonControl::clicked, [=]() {
+        QStringList styles = styleMap.values();
+        QString selection = MultiOptionDialog::getSelection(tr("Select a map style"), styles, "", this);
+        if (!selection.isEmpty()) {
+          int selectedStyle = styleMap.key(selection);
+          params.putIntNonBlocking("MapStyle", selectedStyle);
+          mapStyleButton->setValue(selection);
+          updateFrogPilotToggles();
+        }
+      });
+
+      int currentStyle = params.getInt("MapStyle");
+      mapStyleButton->setValue(styleMap[currentStyle]);
+
+      visualToggle = mapStyleButton;
 
     } else if (param == "ScreenManagement") {
       FrogPilotParamManageControl *screenToggle = new FrogPilotParamManageControl(param, title, desc, icon, this);
@@ -470,7 +470,9 @@ void FrogPilotVisualsPanel::updateState(const UIState &s) {
 
       if (progress == "Downloaded!" || downloadFailed) {
         QTimer::singleShot(2000, [=]() {
-          downloadStatusLabel->setText("Idle");
+          if (!wheelDownloading) {
+            downloadStatusLabel->setText("Idle");
+          }
         });
         paramsMemory.remove("WheelDownloadProgress");
         wheelDownloading = false;

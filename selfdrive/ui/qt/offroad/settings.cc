@@ -379,20 +379,43 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
     if (id == 0) {
       QString nameSelection = InputDialog::getText(tr("Name your backup"), this, "", false, 1);
       if (!nameSelection.isEmpty()) {
-        std::thread([=]() {
-          frogpilotBackupBtn->setEnabled(false);
-          frogpilotBackupBtn->setValue(tr("Backing up..."));
+        QString fullBackupPath = backupDir.absolutePath() + "/" + nameSelection;
+        QDir backupDirCheck(fullBackupPath);
 
-          std::string fullBackupPath = backupDir.absolutePath().toStdString() + "/" + nameSelection.toStdString();
-          std::string command = "mkdir -p " + fullBackupPath + " && rsync -av /data/openpilot/ " + fullBackupPath + "/";
+        if (backupDirCheck.exists()) {
+          if (FrogPilotConfirmationDialog::yesorno(tr("Backup name already exists. Do you want to override it?"), this)) {
+            std::thread([=]() {
+              frogpilotBackupBtn->setEnabled(false);
+              frogpilotBackupBtn->setValue(tr("Backing up..."));
 
-          int result = std::system(command.c_str());
-          frogpilotBackupBtn->setValue(result == 0 ? tr("Success!") : tr("Failed..."));
+              std::string deleteCommand = "rm -rf " + fullBackupPath.toStdString();
+              std::system(deleteCommand.c_str());
 
-          std::this_thread::sleep_for(std::chrono::seconds(2));
-          frogpilotBackupBtn->setValue("");
-          frogpilotBackupBtn->setEnabled(true);
-        }).detach();
+              std::string command = "mkdir -p " + fullBackupPath.toStdString() + " && rsync -av /data/openpilot/ " + fullBackupPath.toStdString() + "/";
+
+              int result = std::system(command.c_str());
+              frogpilotBackupBtn->setValue(result == 0 ? tr("Success!") : tr("Failed..."));
+
+              std::this_thread::sleep_for(std::chrono::seconds(2));
+              frogpilotBackupBtn->setValue("");
+              frogpilotBackupBtn->setEnabled(true);
+            }).detach();
+          }
+        } else {
+          std::thread([=]() {
+            frogpilotBackupBtn->setEnabled(false);
+            frogpilotBackupBtn->setValue(tr("Backing up..."));
+
+            std::string command = "mkdir -p " + fullBackupPath.toStdString() + " && rsync -av --exclude '.*' /data/openpilot/ " + fullBackupPath.toStdString() + "/";
+
+            int result = std::system(command.c_str());
+            frogpilotBackupBtn->setValue(result == 0 ? tr("Success!") : tr("Failed..."));
+
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            frogpilotBackupBtn->setValue("");
+            frogpilotBackupBtn->setEnabled(true);
+          }).detach();
+        }
       }
 
     } else if (id == 1) {

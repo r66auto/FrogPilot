@@ -13,6 +13,7 @@ class FrogPilotTracking:
 
     self.drive_distance = 0
     self.drive_time = 0
+    self.starting_total_minutes = self.total_minutes
 
   def update(self, carState):
     self.drive_distance += carState.vEgo * DT_MDL
@@ -27,7 +28,7 @@ class FrogPilotTracking:
       self.params_tracking.put_float_nonblocking("FrogPilotMinutes", self.total_minutes)
       self.drive_time = 0
 
-      if not self.drive_added and self.drive_time > 60 * 15:
+      if not self.drive_added and (self.total_minutes - self.starting_total_minutes > 15):
         self.total_drives += 1
         self.params_tracking.put_int_nonblocking("FrogPilotDrives", self.total_drives)
         self.drive_added = True

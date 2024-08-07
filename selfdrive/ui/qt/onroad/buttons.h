@@ -16,6 +16,9 @@ public:
   explicit ExperimentalButton(QWidget *parent = 0);
   void updateState(const UIState &s, bool leadInfo);
 
+  // FrogPilot widgets
+  void updateIcon();
+
 private:
   void paintEvent(QPaintEvent *event) override;
   void changeMode();
@@ -28,7 +31,6 @@ private:
 
   // FrogPilot widgets
   void updateBackgroundColor();
-  void updateIcon();
 
   // FrogPilot variables
   Params paramsMemory{"/dev/shm/params"};
