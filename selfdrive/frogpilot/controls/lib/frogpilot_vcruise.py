@@ -37,6 +37,10 @@ class FrogPilotVCruise:
     self.vtsc_target = 0
 
   def update(self, carState, controlsState, frogpilotCarControl, frogpilotCarState, frogpilotNavigation, modelData, v_cruise, v_ego, frogpilot_toggles):
+    self.override_force_stop |= carState.gasPressed
+    self.override_force_stop |= frogpilot_toggles.force_stops and carState.standstill and self.frogpilot_planner.tracking_lead
+    self.override_force_stop |= frogpilotCarControl.resumePressed
+
     v_ego_cluster = max(carState.vEgoCluster, v_ego)
     v_ego_diff = v_ego_cluster - v_ego
 

@@ -195,7 +195,7 @@ class ThemeManager:
   def update_themes(self, branch_name):
     repo_url = get_repository_url()
     if repo_url is None:
-      self.handle_error(None, "Github and Gitlab are offline...", "Github and Gitlab are offline...", params_memory)
+      self.handle_error(None, "Github and Gitlab are offline...", "Github and Gitlab are offline...")
       return
 
     theme_files = self.fetch_files(f"https://github.com/FrogAi/FrogPilot-Resources/tree/{branch_name}")

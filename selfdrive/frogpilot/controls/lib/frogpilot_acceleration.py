@@ -55,9 +55,8 @@ class FrogPilotAcceleration:
       else:
         self.max_accel = get_max_accel(v_ego)
 
-    max_speed_difference = self.frogpilot_planner.v_cruise - v_ego
-    if max_speed_difference < CRUISING_SPEED:
-      self.max_accel -= (CRUISING_SPEED - max_speed_difference) / 10
+    if v_ego < CITY_SPEED_LIMIT:
+      self.max_accel -= max(CRUISING_SPEED - (self.frogpilot_planner.v_cruise - v_ego) - 1, 0) / CRUISING_SPEED
 
     if controlsState.experimentalMode:
       self.min_accel = ACCEL_MIN

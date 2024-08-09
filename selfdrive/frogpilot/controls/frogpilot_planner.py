@@ -34,7 +34,6 @@ class FrogPilotPlanner:
     self.lateral_check = False
     self.lead_departing = False
     self.model_stopped = False
-    self.override_force_stop = False
     self.slower_lead = False
     self.taking_curve_quickly = False
     self.tracking_lead = False
@@ -108,10 +107,6 @@ class FrogPilotPlanner:
     self.model_length = modelData.position.x[MODEL_LENGTH - 1]
     self.model_stopped = self.model_length < CRUISING_SPEED * PLANNER_TIME
     self.model_stopped |= self.frogpilot_vcruise.forcing_stop
-
-    self.override_force_stop |= carState.gasPressed
-    self.override_force_stop |= frogpilot_toggles.force_stops and carState.standstill and self.tracking_lead
-    self.override_force_stop |= frogpilotCarControl.resumePressed
 
     self.road_curvature = calculate_road_curvature(modelData, v_ego) if not carState.standstill else 1
 
