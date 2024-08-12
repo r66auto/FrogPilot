@@ -93,7 +93,7 @@ class ConditionalExperimentalMode:
 
   def stop_sign_and_light(self, tracking_lead, v_ego, frogpilot_toggles):
     model_filtered = not (self.curve_detected or tracking_lead)
-    model_projection = PLANNER_TIME - (5 if frogpilot_toggles.less_sensitive_lights else 3)
+    model_projection = PLANNER_TIME - (5 if frogpilot_toggles.less_sensitive_lights else 2)
     model_stopping = self.frogpilot_planner.model_length < v_ego * model_projection
 
     self.stop_light_mac.add_data((self.frogpilot_planner.model_stopped or model_stopping) and model_filtered)

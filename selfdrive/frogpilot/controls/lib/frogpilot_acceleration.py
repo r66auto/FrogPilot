@@ -22,6 +22,9 @@ def get_max_accel_sport(v_ego):
 def get_max_accel_sport_plus(v_ego):
   return interp(v_ego, A_CRUISE_MAX_BP_CUSTOM, A_CRUISE_MAX_VALS_SPORT_PLUS)
 
+def get_max_accel_offset(v_cruise):
+  return interp(v_cruise, [0., CITY_SPEED_LIMIT], [0.5, 1.0])
+
 class FrogPilotAcceleration:
   def __init__(self, FrogPilotPlanner):
     self.frogpilot_planner = FrogPilotPlanner
@@ -33,9 +36,7 @@ class FrogPilotAcceleration:
     eco_gear = frogpilotCarState.ecoGear
     sport_gear = frogpilotCarState.sportGear
 
-    if self.frogpilot_planner.tracking_lead and frogpilot_toggles.aggressive_acceleration:
-      self.max_accel = clip(self.frogpilot_planner.lead_one.aLeadK, get_max_accel_sport_plus(v_ego), 2.0 if v_ego >= 20 else 4.0)
-    elif frogpilot_toggles.map_acceleration and (eco_gear or sport_gear):
+    if frogpilot_toggles.map_acceleration and (eco_gear or sport_gear):
       if eco_gear:
         self.max_accel = get_max_accel_eco(v_ego)
       else:
@@ -55,8 +56,13 @@ class FrogPilotAcceleration:
       else:
         self.max_accel = get_max_accel(v_ego)
 
-    if v_ego < CITY_SPEED_LIMIT:
-      self.max_accel -= max(CRUISING_SPEED - (self.frogpilot_planner.v_cruise - v_ego) - 1, 0) / CRUISING_SPEED
+    if frogpilot_toggles.aggressive_acceleration:
+      speed_to_max = self.frogpilot_planner.v_cruise - v_ego
+      if speed_to_max < CRUISING_SPEED:
+        self.max_accel -= (CRUISING_SPEED - speed_to_max - (2 if v_ego > CITY_SPEED_LIMIT else 1)) / CRUISING_SPEED
+      elif self.frogpilot_planner.tracking_lead:
+        self.max_accel = clip(self.frogpilot_planner.lead_one.aLeadK, get_max_accel_sport_plus(v_ego), 2.0 if v_ego >= 20 else 4.0)
+      self.max_accel *= get_max_accel_offset(self.frogpilot_planner.v_cruise)
 
     if controlsState.experimentalMode:
       self.min_accel = ACCEL_MIN

@@ -265,7 +265,7 @@ class CarInterfaceBase(ABC):
 
   @staticmethod
   def get_pid_accel_limits(CP, current_speed, cruise_speed, frogpilot_toggles):
-    if frogpilot_toggles.sport_plus:
+    if frogpilot_toggles.sport_plus and current_speed < 20:
       return ACCEL_MIN, ACCEL_MAX_PLUS
     else:
       return ACCEL_MIN, ACCEL_MAX

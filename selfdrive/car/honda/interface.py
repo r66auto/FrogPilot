@@ -24,12 +24,12 @@ class CarInterface(CarInterfaceBase):
   @staticmethod
   def get_pid_accel_limits(CP, current_speed, cruise_speed, frogpilot_toggles):
     if CP.carFingerprint in HONDA_BOSCH:
-      if frogpilot_toggles.sport_plus:
+      if frogpilot_toggles.sport_plus and current_speed < 20:
         return CarControllerParams.BOSCH_ACCEL_MIN, CarControllerParams.BOSCH_ACCEL_MAX_PLUS
       else:
         return CarControllerParams.BOSCH_ACCEL_MIN, CarControllerParams.BOSCH_ACCEL_MAX
     elif CP.enableGasInterceptor:
-      if frogpilot_toggles.sport_plus:
+      if frogpilot_toggles.sport_plus and current_speed < 20:
         return CarControllerParams.NIDEC_ACCEL_MIN, CarControllerParams.NIDEC_ACCEL_MAX_PLUS
       else:
         return CarControllerParams.NIDEC_ACCEL_MIN, CarControllerParams.NIDEC_ACCEL_MAX

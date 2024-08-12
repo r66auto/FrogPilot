@@ -2,7 +2,7 @@ from openpilot.common.numpy_fast import clip, interp
 
 from openpilot.selfdrive.controls.lib.longitudinal_mpc_lib.long_mpc import COMFORT_BRAKE, get_jerk_factor, get_safe_obstacle_distance, get_stopped_equivalence_factor, get_T_FOLLOW
 
-from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_variables import CITY_SPEED_LIMIT
+from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_variables import CITY_SPEED_LIMIT, CRUISING_SPEED
 
 TRAFFIC_MODE_BP = [0., CITY_SPEED_LIMIT]
 
@@ -71,3 +71,6 @@ class FrogPilotFollowing:
         self.speed_jerk = self.base_speed_jerk * min(braking_offset, COMFORT_BRAKE * 2)
         self.t_follow /= braking_offset
       self.slower_lead = braking_offset - far_lead_offset > 1
+
+    if frogpilot_toggles.smoother_braking:
+      self.danger_jerk = self.base_danger_jerk * clip(v_ego - v_lead, 1, CRUISING_SPEED)
