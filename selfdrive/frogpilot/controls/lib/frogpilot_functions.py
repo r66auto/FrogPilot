@@ -2,6 +2,7 @@ import datetime
 import filecmp
 import glob
 import http.client
+import json
 import numpy as np
 import os
 import shutil
@@ -19,9 +20,17 @@ from openpilot.common.params_pyx import Params, ParamKeyType, UnknownKeyName
 from openpilot.common.time import system_time_valid
 from openpilot.system.hardware import HARDWARE
 
-ACTIVE_THEME_PATH = f"{BASEDIR}/selfdrive/frogpilot/assets/active_theme"
+ACTIVE_THEME_PATH = os.path.join(BASEDIR, "selfdrive", "frogpilot", "assets", "active_theme")
 MODELS_PATH = "/data/models"
 THEME_SAVE_PATH = "/data/themes"
+
+def update_frogpilot_toggles():
+  def update_params():
+    params_memory = Params("/dev/shm/params")
+    params_memory.put_bool("FrogPilotTogglesUpdated", True)
+    time.sleep(1)
+    params_memory.put_bool("FrogPilotTogglesUpdated", False)
+  threading.Thread(target=update_params).start()
 
 def cleanup_backups(directory, limit):
   backups = sorted(glob.glob(os.path.join(directory, "*_auto")), key=os.path.getmtime, reverse=True)
@@ -32,7 +41,7 @@ def cleanup_backups(directory, limit):
 def backup_directory(backup, destination, success_message, fail_message):
   os.makedirs(destination, exist_ok=True)
   try:
-    run_cmd(["sudo", "rsync", "-avq", "--exclude", ".*", os.path.join(backup, ""), destination], success_message, fail_message)
+    run_cmd(["sudo", "rsync", "-avq", os.path.join(backup, "."), destination], success_message, fail_message)
   except OSError as e:
     if e.errno == 28:
       print("Not enough space to perform the backup.")
@@ -46,7 +55,7 @@ def backup_frogpilot(build_metadata):
   branch = build_metadata.channel
   commit = build_metadata.openpilot.git_commit_date[12:-16]
 
-  backup_dir = f"{backup_path}/{branch}_{commit}_auto"
+  backup_dir = os.path.join(backup_path, f"{branch}_{commit}_auto")
   backup_directory(BASEDIR, backup_dir, f"Successfully backed up FrogPilot to {backup_dir}.", f"Failed to backup FrogPilot to {backup_dir}.")
 
 def backup_toggles(params, params_storage):
@@ -59,7 +68,7 @@ def backup_toggles(params, params_storage):
   backup_path = "/data/toggle_backups"
   cleanup_backups(backup_path, 9)
 
-  backup_dir = f"{backup_path}/{datetime.datetime.now().strftime('%Y-%m-%d_%I-%M%p').lower()}_auto"
+  backup_dir = os.path.join(backup_path, datetime.datetime.now().strftime('%Y-%m-%d_%I-%M%p').lower() + "_auto")
   backup_directory("/data/params/d", backup_dir, f"Successfully backed up toggles to {backup_dir}.", f"Failed to backup toggles to {backup_dir}.")
 
 def calculate_lane_width(lane, current_lane, road_edge):
@@ -162,11 +171,11 @@ def setup_frogpilot(build_metadata):
   remount_root = ["sudo", "mount", "-o", "remount,rw", "/"]
   run_cmd(remount_root, "File system remounted as read-write.", "Failed to remount file system.")
 
-  frogpilot_boot_logo = f"{BASEDIR}/selfdrive/frogpilot/assets/other_images/frogpilot_boot_logo.png"
-  frogpilot_boot_logo_jpg = f"{BASEDIR}/selfdrive/frogpilot/assets/other_images/frogpilot_boot_logo.jpg"
+  frogpilot_boot_logo = os.path.join(BASEDIR, "selfdrive", "frogpilot", "assets", "other_images", "frogpilot_boot_logo.png")
+  frogpilot_boot_logo_jpg = os.path.join(BASEDIR, "selfdrive", "frogpilot", "assets", "other_images", "frogpilot_boot_logo.jpg")
 
   boot_logo_location = "/usr/comma/bg.jpg"
-  boot_logo_save_location = f"{BASEDIR}/selfdrive/frogpilot/assets/other_images/original_bg.jpg"
+  boot_logo_save_location = os.path.join(BASEDIR, "selfdrive", "frogpilot", "assets", "other_images", "original_bg.jpg")
 
   if not os.path.exists(boot_logo_save_location):
     shutil.copy(boot_logo_location, boot_logo_save_location)
@@ -183,49 +192,52 @@ def setup_frogpilot(build_metadata):
 
 def uninstall_frogpilot():
   boot_logo_location = "/usr/comma/bg.jpg"
-  boot_logo_restore_location = f"{BASEDIR}/selfdrive/frogpilot/assets/other_images/original_bg.jpg"
+  boot_logo_restore_location = os.path.join(BASEDIR, "selfdrive", "frogpilot", "assets", "other_images", "original_bg.jpg")
 
   copy_cmd = ["sudo", "cp", boot_logo_restore_location, boot_logo_location]
   run_cmd(copy_cmd, "Successfully restored the original boot logo.", "Failed to restore the original boot logo.")
 
   HARDWARE.uninstall()
 
-def update_frogpilot_toggles():
-  def update_params():
-    params_memory = Params("/dev/shm/params")
-    params_memory.put_bool("FrogPilotTogglesUpdated", True)
-    time.sleep(1)
-    params_memory.put_bool("FrogPilotTogglesUpdated", False)
-  threading.Thread(target=update_params).start()
-
 def update_wheel_image(image, holiday_theme=False, random_event=True):
-  if holiday_theme:
-    wheel_locations = f"{BASEDIR}/selfdrive/frogpilot/assets/holiday_themes/{image}/images/steering_wheel"
-  elif random_event:
-    wheel_locations = f"{BASEDIR}/selfdrive/frogpilot/assets/random_events/images"
-  else:
-    wheel_locations = os.path.join(THEME_SAVE_PATH, "steering_wheels")
-  wheel_save_location = f"{ACTIVE_THEME_PATH}/images"
+  try:
+    if holiday_theme:
+      wheel_locations = os.path.join(BASEDIR, "selfdrive", "frogpilot", "assets", "holiday_themes", image, "images", "steering_wheel")
+    elif random_event:
+      wheel_locations = os.path.join(BASEDIR, "selfdrive", "frogpilot", "assets", "random_events", "images")
+    else:
+      wheel_locations = os.path.join(THEME_SAVE_PATH, "steering_wheels")
 
-  if not os.path.exists(wheel_save_location):
-    os.makedirs(wheel_save_location, exist_ok=True)
+    if not os.path.exists(wheel_locations):
+      return
 
-  for filename in os.listdir(wheel_save_location):
-    if filename.startswith("wheel"):
-      file_path = os.path.join(wheel_save_location, filename)
-      delete_file(file_path)
+    wheel_save_location = os.path.join(ACTIVE_THEME_PATH, "images")
 
-  source_file = None
-  for filename in os.listdir(wheel_locations):
-    if os.path.splitext(filename)[0].lower() == image.replace(" ", "_").lower():
-      source_file = os.path.join(wheel_locations, filename)
-      break
+    if not os.path.exists(wheel_save_location):
+      os.makedirs(wheel_save_location, exist_ok=True)
 
-  if source_file and os.path.exists(source_file):
-    file_extension = os.path.splitext(source_file)[1]
-    destination_file = os.path.join(wheel_save_location, f"wheel{file_extension}")
-    shutil.copy2(source_file, destination_file)
-    print(f"Copied {source_file} to {destination_file}")
+    for filename in os.listdir(wheel_save_location):
+      if filename.startswith("wheel"):
+        file_path = os.path.join(wheel_save_location, filename)
+        delete_file(file_path)
+
+    source_file = None
+    for filename in os.listdir(wheel_locations):
+      if os.path.splitext(filename)[0].lower() == image.replace(" ", "_").lower():
+        source_file = os.path.join(wheel_locations, filename)
+        break
+
+    if source_file and os.path.exists(source_file):
+      file_extension = os.path.splitext(source_file)[1]
+      destination_file = os.path.join(wheel_save_location, f"wheel{file_extension}")
+      shutil.copy2(source_file, destination_file)
+      print(f"Copied {source_file} to {destination_file}")
+
+  except FileNotFoundError as e:
+    print(f"Error: {e}")
+
+  except Exception as e:
+    print(f"Unexpected error: {e}")
 
 class MovingAverageCalculator:
   def __init__(self):

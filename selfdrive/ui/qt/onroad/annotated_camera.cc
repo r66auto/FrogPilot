@@ -1,4 +1,3 @@
-
 #include "selfdrive/ui/qt/onroad/annotated_camera.h"
 
 #include <QPainter>
@@ -313,7 +312,7 @@ void AnnotatedCameraWidget::updateFrameMat() {
       .translate(-intrinsic_matrix.v[2], -intrinsic_matrix.v[5]);
 }
 
-void AnnotatedCameraWidget::drawLaneLines(QPainter &painter, const UIState *s, const float v_ego) {
+void AnnotatedCameraWidget::drawLaneLines(QPainter &painter, const UIState *s) {
   painter.save();
 
   const UIScene &scene = s->scene;
@@ -411,14 +410,14 @@ void AnnotatedCameraWidget::drawLaneLines(QPainter &painter, const UIState *s, c
   painter.setBrush(bg);
   painter.drawPolygon(scene.track_vertices);
 
-  if (scene.show_stopping_point && scene.red_light && v_ego > 1 && !(conditionalStatus == 1 || conditionalStatus == 3 || conditionalStatus == 5)) {
+  if (scene.show_stopping_point && scene.red_light && speed > 1 && !(conditionalStatus == 1 || conditionalStatus == 3 || conditionalStatus == 5)) {
     QPointF last_point = scene.track_vertices.last();
 
     QPointF adjusted_point = last_point - QPointF(stopSignImg.width() / 2, stopSignImg.height());
     painter.drawPixmap(adjusted_point, stopSignImg);
 
     if (scene.show_stopping_point_metrics) {
-      QString text = QString::number(scene.model_length * distanceConversion) + leadDistanceUnit;
+      QString text = QString::number(modelLength * distanceConversion) + leadDistanceUnit;
       QFont font = InterFont(35, QFont::DemiBold);
       QFontMetrics fm(font);
       int text_width = fm.horizontalAdvance(text);
@@ -705,7 +704,7 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
 
   if (s->scene.world_objects_visible) {
     update_model(s, model, sm["uiPlan"].getUiPlan());
-    drawLaneLines(painter, s, v_ego);
+    drawLaneLines(painter, s);
 
     if (s->scene.longitudinal_control && sm.rcv_frame("modelV2") > s->scene.started_frame && !s->scene.hide_lead_marker) {
       update_leads(s, model);
@@ -753,6 +752,8 @@ void AnnotatedCameraWidget::showEvent(QShowEvent *event) {
 
   ui_update_params(uiState());
   prev_draw_t = millis_since_boot();
+
+  // Update FrogPilot button icons
   experimental_btn->updateIcon();
 }
 
@@ -917,6 +918,8 @@ void AnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &painter, const UISce
     map_settings_btn_bottom->setVisible(!hideBottomIcons && !compass && !hideMapIcon);
     bottom_layout->setAlignment(map_settings_btn_bottom, (rightHandDM ? Qt::AlignLeft : Qt::AlignRight) | Qt::AlignBottom);
   }
+
+  modelLength = scene.model_length;
 
   onroadDistanceButton = scene.onroad_distance_button;
   bool enableDistanceButton = onroadDistanceButton && !hideBottomIcons;
@@ -1289,6 +1292,8 @@ void AnnotatedCameraWidget::drawStatusBar(QPainter &p) {
   p.setOpacity(1.0);
   p.drawRoundedRect(statusBarRect, 30, 30);
 
+  int modelStopTime = std::nearbyint(modelLength / (speed / (is_metric ? MS_TO_KPH : MS_TO_MPH)));
+
   std::map<int, QString> conditionalStatusMap = {
     {0, tr("Conditional Experimental Mode ready")},
     {1, tr("Conditional Experimental overridden")},
@@ -1297,16 +1302,16 @@ void AnnotatedCameraWidget::drawStatusBar(QPainter &p) {
     {4, tr("Experimental Mode manually activated")},
     {5, tr("Conditional Experimental overridden")},
     {6, tr("Experimental Mode manually activated")},
-    {7, tr("Experimental Mode activated for") + (mapOpen ? tr(" low speed") : tr(" speed being less than ") + QString::number(conditionalSpeedLead) + (is_metric ? tr("kph") : tr("mph")))},
-    {8, tr("Experimental Mode activated for") + (mapOpen ? tr(" low speed") : tr(" speed being less than ") + QString::number(conditionalSpeed) + (is_metric ? tr("kph") : tr("mph")))},
+    {7, tr("Experimental Mode activated for %1").arg(mapOpen ? tr("low speed") : tr("speed being less than %1 %2").arg(conditionalSpeedLead).arg(is_metric ? tr("kph") : tr("mph")))},
+    {8, tr("Experimental Mode activated for %1").arg(mapOpen ? tr("low speed") : tr("speed being less than %1 %2").arg(conditionalSpeed).arg(is_metric ? tr("kph") : tr("mph")))},
     {9, tr("Experimental Mode activated for turn") + (mapOpen ? "" : tr(" / lane change"))},
     {10, tr("Experimental Mode activated for intersection")},
     {11, tr("Experimental Mode activated for upcoming turn")},
     {12, tr("Experimental Mode activated for curve")},
     {13, tr("Experimental Mode activated for stopped lead")},
     {14, tr("Experimental Mode activated for slower lead")},
-    {15, tr("Experimental Mode activated for stop light") + (mapOpen ? tr("") : tr(" or stop sign"))},
-    {16, tr("Experimental Mode forced on for stop light") + (mapOpen ? tr("") : tr(" or stop sign"))},
+    {15, tr("Experimental Mode activated for model wanting to stop%1").arg(speed < 1 || mapOpen ? QString() : QString(" in %1 seconds").arg(modelStopTime))},
+    {16, tr("Experimental Mode forced on for model wanting to stop%1").arg(speed < 1 || mapOpen ? QString() : QString(" in %1 seconds").arg(modelStopTime))},
     {17, tr("Experimental Mode activated due to no speed limit")},
   };
 

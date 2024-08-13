@@ -1,13 +1,11 @@
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.numpy_fast import clip
-from openpilot.common.params import Params
 from openpilot.common.realtime import DT_MDL
 
 from openpilot.selfdrive.controls.controlsd import ButtonType
 from openpilot.selfdrive.controls.lib.drive_helpers import V_CRUISE_UNSET
 
-from openpilot.selfdrive.frogpilot.controls.lib.conditional_experimental_mode import PLANNER_TIME
-from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_variables import CRUISING_SPEED
+from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_variables import CRUISING_SPEED, PLANNER_TIME
 from openpilot.selfdrive.frogpilot.controls.lib.map_turn_speed_controller import MapTurnSpeedController
 from openpilot.selfdrive.frogpilot.controls.lib.speed_limit_controller import SpeedLimitController
 
@@ -17,7 +15,7 @@ class FrogPilotVCruise:
   def __init__(self, FrogPilotPlanner):
     self.frogpilot_planner = FrogPilotPlanner
 
-    self.params_memory = Params("/dev/shm/params")
+    self.params_memory = self.frogpilot_planner.params_memory
 
     self.mtsc = MapTurnSpeedController()
     self.slc = SpeedLimitController()
@@ -40,6 +38,9 @@ class FrogPilotVCruise:
     self.override_force_stop |= carState.gasPressed
     self.override_force_stop |= frogpilot_toggles.force_stops and carState.standstill and self.frogpilot_planner.tracking_lead
     self.override_force_stop |= frogpilotCarControl.resumePressed
+
+    v_cruise_cluster = max(controlsState.vCruiseCluster, v_cruise) * CV.KPH_TO_MS
+    v_cruise_diff = v_cruise_cluster - v_cruise
 
     v_ego_cluster = max(carState.vEgoCluster, v_ego)
     v_ego_diff = v_ego_cluster - v_ego
@@ -104,9 +105,9 @@ class FrogPilotVCruise:
         if frogpilot_toggles.speed_limit_controller_override_manual:
           if carState.gasPressed:
             self.overridden_speed = v_ego + v_ego_diff
-          self.overridden_speed = clip(self.overridden_speed, self.slc_target, v_cruise)
+          self.overridden_speed = clip(self.overridden_speed, self.slc_target, v_cruise + v_cruise_diff)
         elif frogpilot_toggles.speed_limit_controller_override_set_speed:
-          self.overridden_speed = v_cruise
+          self.overridden_speed = v_cruise + v_cruise_diff
       else:
         self.overridden_speed = 0
     else:

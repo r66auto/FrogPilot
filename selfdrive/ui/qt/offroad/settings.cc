@@ -306,7 +306,7 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
 
         deleteDrivingDataBtn->setValue(tr("Deleted!"));
 
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        util::sleep_for(2000);
         deleteDrivingDataBtn->setValue("");
         deleteDrivingDataBtn->setEnabled(true);
       }).detach();
@@ -336,7 +336,7 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
             screenRecordingsBtn->setValue(tr("Failed..."));
           }
 
-          std::this_thread::sleep_for(std::chrono::seconds(2));
+          util::sleep_for(2000);
           screenRecordingsBtn->setValue("");
           screenRecordingsBtn->setEnabled(true);
         }).detach();
@@ -360,7 +360,7 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
               screenRecordingsBtn->setValue(tr("Failed..."));
             }
 
-            std::this_thread::sleep_for(std::chrono::seconds(2));
+            util::sleep_for(2000);
             screenRecordingsBtn->setValue("");
             screenRecordingsBtn->setEnabled(true);
           }).detach();
@@ -396,7 +396,7 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
               int result = std::system(command.c_str());
               frogpilotBackupBtn->setValue(result == 0 ? tr("Success!") : tr("Failed..."));
 
-              std::this_thread::sleep_for(std::chrono::seconds(2));
+              util::sleep_for(2000);
               frogpilotBackupBtn->setValue("");
               frogpilotBackupBtn->setEnabled(true);
             }).detach();
@@ -406,12 +406,12 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
             frogpilotBackupBtn->setEnabled(false);
             frogpilotBackupBtn->setValue(tr("Backing up..."));
 
-            std::string command = "mkdir -p " + fullBackupPath.toStdString() + " && rsync -av --exclude '.*' /data/openpilot/ " + fullBackupPath.toStdString() + "/";
+            std::string command = "mkdir -p " + fullBackupPath.toStdString() + " && rsync -av /data/openpilot/ " + fullBackupPath.toStdString() + "/";
 
             int result = std::system(command.c_str());
             frogpilotBackupBtn->setValue(result == 0 ? tr("Success!") : tr("Failed..."));
 
-            std::this_thread::sleep_for(std::chrono::seconds(2));
+            util::sleep_for(2000);
             frogpilotBackupBtn->setValue("");
             frogpilotBackupBtn->setEnabled(true);
           }).detach();
@@ -432,7 +432,7 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
 
           frogpilotBackupBtn->setValue(dirToDelete.removeRecursively() ? tr("Deleted!") : tr("Failed..."));
 
-          std::this_thread::sleep_for(std::chrono::seconds(2));
+          util::sleep_for(2000);
           frogpilotBackupBtn->setValue("");
           frogpilotBackupBtn->setEnabled(true);
         }).detach();
@@ -458,9 +458,9 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
             std::ofstream consistentFile(consistentFilePath);
             if (consistentFile) {
               frogpilotBackupBtn->setValue(tr("Restored!"));
-              std::this_thread::sleep_for(std::chrono::seconds(2));
+              util::sleep_for(2000);
               frogpilotBackupBtn->setValue(tr("Rebooting..."));
-              std::this_thread::sleep_for(std::chrono::seconds(2));
+              util::sleep_for(2000);
               consistentFile.close();
               Hardware::reboot();
             } else {
@@ -469,7 +469,7 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
           } else {
             frogpilotBackupBtn->setValue(tr("Failed..."));
           }
-          std::this_thread::sleep_for(std::chrono::seconds(2));
+          util::sleep_for(2000);
           frogpilotBackupBtn->setValue("");
           frogpilotBackupBtn->setEnabled(true);
         }).detach();
@@ -497,7 +497,7 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
           int result = std::system(command.c_str());
           toggleBackupBtn->setValue(result == 0 ? tr("Success!") : tr("Failed..."));
 
-          std::this_thread::sleep_for(std::chrono::seconds(2));
+          util::sleep_for(2000);
           toggleBackupBtn->setValue("");
           toggleBackupBtn->setEnabled(true);
         }).detach();
@@ -517,7 +517,7 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
 
           toggleBackupBtn->setValue(dirToDelete.removeRecursively() ? tr("Deleted!") : tr("Failed..."));
 
-          std::this_thread::sleep_for(std::chrono::seconds(2));
+          util::sleep_for(2000);
           toggleBackupBtn->setValue("");
           toggleBackupBtn->setEnabled(true);
         }).detach();
@@ -545,7 +545,7 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
             toggleBackupBtn->setValue(tr("Failed..."));
           }
 
-          std::this_thread::sleep_for(std::chrono::seconds(2));
+          util::sleep_for(2000);
           toggleBackupBtn->setValue("");
           toggleBackupBtn->setEnabled(true);
         }).detach();
@@ -581,9 +581,9 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
         }
 
         flashPandaBtn->setValue(tr("Flashed!"));
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        util::sleep_for(2000);
         flashPandaBtn->setValue(tr("Rebooting..."));
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        util::sleep_for(2000);
         Hardware::reboot();
       }).detach();
     }
@@ -602,9 +602,9 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
         params.putBool("DoToggleReset", true);
 
         resetTogglesBtn->setValue(tr("Reset!"));
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        util::sleep_for(2000);
         resetTogglesBtn->setValue(tr("Rebooting..."));
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        util::sleep_for(2000);
         Hardware::reboot();
       }).detach();
     }

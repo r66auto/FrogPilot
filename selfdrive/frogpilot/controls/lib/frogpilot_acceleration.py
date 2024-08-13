@@ -56,7 +56,7 @@ class FrogPilotAcceleration:
       else:
         self.max_accel = get_max_accel(v_ego)
 
-    if frogpilot_toggles.aggressive_acceleration:
+    if frogpilot_toggles.human_acceleration:
       speed_to_max = self.frogpilot_planner.v_cruise - v_ego
       if speed_to_max < CRUISING_SPEED:
         self.max_accel -= (CRUISING_SPEED - speed_to_max - (2 if v_ego > CITY_SPEED_LIMIT else 1)) / CRUISING_SPEED

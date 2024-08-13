@@ -7,14 +7,17 @@ from cereal import car
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.params import Params
 from openpilot.selfdrive.controls.lib.desire_helper import LANE_CHANGE_SPEED_MIN
+from openpilot.selfdrive.modeld.constants import ModelConstants
 from openpilot.system.version import get_build_metadata
 
 from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_functions import MODELS_PATH, update_wheel_image
 from openpilot.selfdrive.frogpilot.controls.lib.model_manager import DEFAULT_MODEL, DEFAULT_MODEL_NAME, process_model_name
 
-CITY_SPEED_LIMIT = 25  # 55mph is typically the minimum speed for highways
-CRUISING_SPEED = 5     # Roughly the speed cars go when not touching the gas while in drive
-PROBABILITY = 0.6      # 60% chance of condition being true
+CITY_SPEED_LIMIT = 25                                   # 55mph is typically the minimum speed for highways
+CRUISING_SPEED = 5                                      # Roughly the speed cars go when not touching the gas while in drive
+MODEL_LENGTH = ModelConstants.IDX_N                     # Minimum length of the model
+PLANNER_TIME = ModelConstants.T_IDXS[MODEL_LENGTH - 1]  # Length of time the model projects out for
+PROBABILITY = 0.6                                       # 60% chance of condition being true
 
 class FrogPilotVariables:
   def __init__(self):
@@ -100,13 +103,12 @@ class FrogPilotVariables:
     toggle.conditional_stopped_lead = toggle.conditional_lead and self.params.get_bool("CEStoppedLead")
     toggle.conditional_limit = self.params.get_int("CESpeed") * speed_conversion if toggle.conditional_experimental_mode else 0
     toggle.conditional_limit_lead = self.params.get_int("CESpeedLead") * speed_conversion if toggle.conditional_experimental_mode else 0
+    toggle.conditional_model_stop_time = self.params.get_int("CEModelStopTime") if toggle.conditional_experimental_mode else 0
     toggle.conditional_navigation = toggle.conditional_experimental_mode and self.params.get_bool("CENavigation")
     toggle.conditional_navigation_intersections = toggle.conditional_navigation and self.params.get_bool("CENavigationIntersections")
     toggle.conditional_navigation_lead = toggle.conditional_navigation and self.params.get_bool("CENavigationLead")
     toggle.conditional_navigation_turns = toggle.conditional_navigation and self.params.get_bool("CENavigationTurns")
     toggle.conditional_signal = toggle.conditional_experimental_mode and self.params.get_bool("CESignal")
-    toggle.conditional_stop_lights = toggle.conditional_experimental_mode and self.params.get_bool("CEStopLights")
-    toggle.less_sensitive_lights = toggle.conditional_stop_lights and self.params.get_bool("CEStopLightsLessSensitive")
 
     custom_alerts = self.params.get_bool("CustomAlerts")
     toggle.green_light_alert = custom_alerts and self.params.get_bool("GreenLightAlert")
@@ -174,11 +176,11 @@ class FrogPilotVariables:
 
     longitudinal_tune = openpilot_longitudinal and self.params.get_bool("LongitudinalTune")
     toggle.acceleration_profile = self.params.get_int("AccelerationProfile") if longitudinal_tune else 0
-    toggle.aggressive_acceleration = longitudinal_tune and self.params.get_bool("AggressiveAcceleration")
     toggle.deceleration_profile = self.params.get_int("DecelerationProfile") if longitudinal_tune else 0
+    toggle.human_acceleration = longitudinal_tune and self.params.get_bool("HumanAcceleration")
+    toggle.human_following = longitudinal_tune and self.params.get_bool("HumanFollowing")
     toggle.increased_stopping_distance = self.params.get_int("StoppingDistance") * distance_conversion if longitudinal_tune else 0
     toggle.lead_detection_threshold = self.params.get_int("LeadDetectionThreshold") / 100. if longitudinal_tune else 0.5
-    toggle.smoother_braking = longitudinal_tune and self.params.get_bool("SmoothBraking")
     toggle.sport_plus = longitudinal_tune and toggle.acceleration_profile == 3
     toggle.traffic_mode = longitudinal_tune and self.params.get_bool("TrafficMode")
 

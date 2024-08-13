@@ -8,7 +8,7 @@ void updateFrogPilotToggles() {
   int currentCall = ++callCounter;
   std::thread([currentCall]() {
     paramsMemory.putBool("FrogPilotTogglesUpdated", true);
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    util::sleep_for(1000);
     if (currentCall == callCounter) {
       paramsMemory.putBool("FrogPilotTogglesUpdated", false);
     }

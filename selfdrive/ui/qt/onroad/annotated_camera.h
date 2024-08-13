@@ -156,6 +156,7 @@ private:
   int customColors;
   int customSignals;
   int desiredFollow;
+  int modelLength;
   int obstacleDistance;
   int obstacleDistanceStock;
   int standstillDuration;
@@ -186,7 +187,7 @@ protected:
   void initializeGL() override;
   void showEvent(QShowEvent *event) override;
   void updateFrameMat() override;
-  void drawLaneLines(QPainter &painter, const UIState *s, const float v_ego);
+  void drawLaneLines(QPainter &painter, const UIState *s);
   void drawLead(QPainter &painter, const cereal::ModelDataV2::LeadDataV3::Reader &lead_data, const QPointF &vd, const float v_ego);
   void drawHud(QPainter &p);
   void drawDriverState(QPainter &painter, const UIState *s);
