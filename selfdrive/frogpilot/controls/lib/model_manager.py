@@ -12,7 +12,7 @@ from openpilot.common.basedir import BASEDIR
 from openpilot.selfdrive.frogpilot.controls.lib.download_functions import GITHUB_URL, GITLAB_URL, get_remote_file_size, get_repository_url, verify_download
 from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_functions import MODELS_PATH, delete_file
 
-VERSION = "v4"
+VERSION = "v5"
 
 DEFAULT_MODEL = "north-dakota-v2"
 DEFAULT_MODEL_NAME = "North Dakota V2 (Default)"
