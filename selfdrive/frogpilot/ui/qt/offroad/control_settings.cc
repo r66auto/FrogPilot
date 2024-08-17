@@ -116,7 +116,7 @@ FrogPilotControlsPanel::FrogPilotControlsPanel(SettingsWindow *parent) : FrogPil
     {"MTSCAggressiveness", tr("Turn Speed Aggressiveness"), tr("Set turn speed aggressiveness. Higher values result in faster turns, lower values yield gentler turns. \n\nA change of +- 1% results in the speed being raised or lowered by about 1 mph."), ""},
 
     {"ModelManagement", tr("Model Management"), tr("Manage openpilot's driving models."), "../assets/offroad/icon_calibration.png"},
-    {"AutomaticallyUpdateModels", tr("Automatically Update Models"), tr("Automatically download models as they're updated or added to the model list."), ""},
+    {"AutomaticallyUpdateModels", tr("Automatically Update and Download Models"), tr("Automatically download models as they're updated or added to the model list."), ""},
     {"ModelRandomizer", tr("Model Randomizer"), tr("Have a random model be selected each drive that can be reviewed at the end of each drive to find your preferred model."), ""},
     {"ManageBlacklistedModels", tr("Manage Model Blacklist"), "Manage the models on your blacklist.", ""},
     {"ResetScores", tr("Reset Model Scores"), tr("Reset the scores you have rated the openpilot models."), ""},
@@ -307,10 +307,6 @@ FrogPilotControlsPanel::FrogPilotControlsPanel(SettingsWindow *parent) : FrogPil
       } else {
         controlToggle = new FrogPilotParamValueControl(param, title, desc, icon, 1, 500, std::map<int, QString>(), this, false, "%");
       }
-    } else if (param == "OnroadDistanceButton") {
-      std::vector<QString> onroadDistanceToggles{"KaofuiIcons"};
-      std::vector<QString> onroadDistanceToggleNames{tr("Kaofui's Icons")};
-      controlToggle = new FrogPilotParamToggleControl(param, title, desc, icon, onroadDistanceToggles, onroadDistanceToggleNames);
 
     } else if (param == "ExperimentalModeActivation") {
       FrogPilotParamManageControl *experimentalModeActivationToggle = new FrogPilotParamManageControl(param, title, desc, icon, this);
@@ -578,7 +574,7 @@ FrogPilotControlsPanel::FrogPilotControlsPanel(SettingsWindow *parent) : FrogPil
               bool downloadComplete = progress.contains(QRegularExpression("downloaded", QRegularExpression::CaseInsensitiveOption));
               bool downloadFailed = progress.contains(QRegularExpression("cancelled|exists|failed|offline", QRegularExpression::CaseInsensitiveOption));
 
-              if (progress != "0%") {
+              if (!progress.isEmpty() && progress != "0%") {
                 downloadModelBtn->setValue(progress);
               }
 
@@ -1272,41 +1268,43 @@ void FrogPilotControlsPanel::startDownloadAllModels() {
 
   downloadAllModelsBtn->setValue(tr("Downloading models..."));
 
-  QTimer *checkDownloadTimer = new QTimer(this);
-  checkDownloadTimer->setInterval(100);
+  QTimer *progressTimer = new QTimer(this);
+  progressTimer->setInterval(100);
 
-  QObject::connect(checkDownloadTimer, &QTimer::timeout, this, [=]() {
+  QObject::connect(progressTimer, &QTimer::timeout, this, [=]() {
     QString progress = QString::fromStdString(paramsMemory.get("ModelDownloadProgress"));
-    bool downloadFailed = progress.contains(QRegularExpression("cancelled|exists|Failed|offline", QRegularExpression::CaseInsensitiveOption));
+    bool downloadComplete = progress.contains(QRegularExpression("All models downloaded!", QRegularExpression::CaseInsensitiveOption));
+    bool downloadFailed = progress.contains(QRegularExpression("cancelled|exists|failed|offline", QRegularExpression::CaseInsensitiveOption));
 
     if (!progress.isEmpty() && progress != "0%") {
       downloadAllModelsBtn->setValue(progress);
     }
 
-    if (progress == "All models downloaded!" || downloadFailed) {
-      if (!downloadFailed) {
+    if (downloadComplete || downloadFailed) {
+      if (downloadComplete) {
         haveModelsDownloaded = true;
         update();
       }
 
-      QTimer::singleShot(2000, this, [=]() {
-        allModelsDownloading = false;
-        cancellingDownload = false;
-        modelDownloading = false;
-        downloadAllModelsBtn->setValue("");
-        modelsDownloaded = params.getBool("ModelsDownloaded");
-        paramsMemory.remove("CancelModelDownload");
-        update();
-      });
+      downloadAllModelsBtn->setValue(progress);
 
+      paramsMemory.remove("CancelModelDownload");
       paramsMemory.remove("ModelDownloadProgress");
 
-      checkDownloadTimer->stop();
-      checkDownloadTimer->deleteLater();
+      progressTimer->stop();
+      progressTimer->deleteLater();
+
+      QTimer::singleShot(2000, this, [=]() {
+        cancellingDownload = false;
+        modelDownloading = false;
+
+        paramsMemory.remove("DownloadAllModels");
+
+        downloadAllModelsBtn->setValue("");
+      });
     }
   });
-
-  checkDownloadTimer->start();
+  progressTimer->start();
 }
 
 QString FrogPilotControlsPanel::processModelName(const QString &modelName) {
