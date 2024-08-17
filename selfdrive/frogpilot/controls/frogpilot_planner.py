@@ -39,7 +39,7 @@ class FrogPilotPlanner:
     self.tracking_lead = False
 
     self.model_length = 0
-    self.road_curvature = 0
+    self.road_curvature = 1
     self.tracking_lead_distance = 0
     self.v_cruise = 0
 

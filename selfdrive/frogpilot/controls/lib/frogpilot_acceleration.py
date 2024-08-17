@@ -3,7 +3,7 @@ from openpilot.common.numpy_fast import clip, interp
 from openpilot.selfdrive.car.interfaces import ACCEL_MIN, ACCEL_MAX
 from openpilot.selfdrive.controls.lib.longitudinal_planner import A_CRUISE_MIN, get_max_accel
 
-from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_variables import CITY_SPEED_LIMIT, CRUISING_SPEED
+from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_variables import CITY_SPEED_LIMIT, CRUISING_SPEED, get_max_allowed_accel
 
 A_CRUISE_MIN_ECO = A_CRUISE_MIN / 4
 A_CRUISE_MIN_SPORT = A_CRUISE_MIN / 2
@@ -11,7 +11,7 @@ A_CRUISE_MIN_SPORT = A_CRUISE_MIN / 2
 A_CRUISE_MAX_BP_CUSTOM =       [ 0.,  5., 10., 15., 20., 25., 40.]
 A_CRUISE_MAX_VALS_ECO =        [1.4, 1.2, 1.0, 0.8, 0.6, 0.4, 0.2]
 A_CRUISE_MAX_VALS_SPORT =      [3.0, 2.5, 2.0, 1.0, 0.9, 0.8, 0.6]
-A_CRUISE_MAX_VALS_SPORT_PLUS = [4.0, 3.0, 2.0, 1.0, 0.9, 0.8, 0.6]
+A_CRUISE_MAX_VALS_SPORT_PLUS = [4.0, 3.5, 3.0, 2.0, 1.0, 0.8, 0.6]
 
 def get_max_accel_eco(v_ego):
   return interp(v_ego, A_CRUISE_MAX_BP_CUSTOM, A_CRUISE_MAX_VALS_ECO)
@@ -61,7 +61,7 @@ class FrogPilotAcceleration:
       if speed_to_max < CRUISING_SPEED:
         self.max_accel -= (CRUISING_SPEED - speed_to_max - (2 if v_ego > CITY_SPEED_LIMIT else 1)) / CRUISING_SPEED
       elif self.frogpilot_planner.tracking_lead:
-        self.max_accel = clip(self.frogpilot_planner.lead_one.aLeadK, get_max_accel_sport_plus(v_ego), 2.0 if v_ego >= 20 else 4.0)
+        self.max_accel = clip(self.frogpilot_planner.lead_one.aLeadK, get_max_accel_sport_plus(v_ego), get_max_allowed_accel(v_ego))
       self.max_accel *= get_max_accel_offset(self.frogpilot_planner.v_cruise)
 
     if controlsState.experimentalMode:

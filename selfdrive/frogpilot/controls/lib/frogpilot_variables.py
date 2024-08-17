@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from cereal import car
 from openpilot.common.conversions import Conversions as CV
+from openpilot.common.numpy_fast import interp
 from openpilot.common.params import Params
 from openpilot.selfdrive.controls.lib.desire_helper import LANE_CHANGE_SPEED_MIN
 from openpilot.selfdrive.modeld.constants import ModelConstants
@@ -18,6 +19,9 @@ CRUISING_SPEED = 5                                      # Roughly the speed cars
 MODEL_LENGTH = ModelConstants.IDX_N                     # Minimum length of the model
 PLANNER_TIME = ModelConstants.T_IDXS[MODEL_LENGTH - 1]  # Length of time the model projects out for
 PROBABILITY = 0.6                                       # 60% chance of condition being true
+
+def get_max_allowed_accel(v_ego):
+  return interp(v_ego, [0., 5., 20.], [4.0, 4.0, 2.0])  # ISO 15622:2018
 
 class FrogPilotVariables:
   def __init__(self):

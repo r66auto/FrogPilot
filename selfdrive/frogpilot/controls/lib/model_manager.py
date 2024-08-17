@@ -134,8 +134,10 @@ def are_all_models_downloaded(available_models, available_model_names, repo_url,
           print(f"Model {model} is outdated. Local size: {local_file_size}, Remote size: {remote_file_size}. Re-downloading...")
           delete_file(model_path)
           part_model_param = process_model_name(available_model_names[available_models.index(model)])
-          params.remove(part_model_param + "CalibrationParams")
-          params.remove(part_model_param + "LiveTorqueParameters")
+          if params.check_key(part_model_param + "CalibrationParams"):
+            params.remove(part_model_param + "CalibrationParams")
+          if params.check_key(part_model_param + "LiveTorqueParameters"):
+            params.remove(part_model_param + "LiveTorqueParameters")
           while params_memory.get("ModelToDownload", encoding='utf-8') is not None:
             time.sleep(1)
           params_memory.put("ModelToDownload", model)
