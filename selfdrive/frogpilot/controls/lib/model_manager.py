@@ -11,7 +11,7 @@ from openpilot.common.basedir import BASEDIR
 
 from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_functions import MODELS_PATH, delete_file, is_url_pingable
 
-VERSION = "v4"
+VERSION = "v5"
 
 GITHUB_REPOSITORY_URL = "https://raw.githubusercontent.com/FrogAi/FrogPilot-Resources/"
 GITLAB_REPOSITORY_URL = "https://gitlab.com/FrogAi/FrogPilot-Resources/-/raw/"

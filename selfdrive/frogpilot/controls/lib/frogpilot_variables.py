@@ -216,6 +216,7 @@ class FrogPilotVariables:
       toggle.radarless_model = toggle.model in radarless_model.split(',')
     else:
       toggle.radarless_model = False
+    toggle.clairvoyant_model = toggle.model == "clairvoyant-driver"
     toggle.secretgoodopenpilot_model = toggle.model == "secret-good-openpilot"
     self.params_memory.put("CurrentModel", toggle.model)
     self.params_memory.put("CurrentModelName", current_model_name)
