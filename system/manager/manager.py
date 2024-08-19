@@ -120,6 +120,7 @@ def manager_init() -> None:
     ("CustomColors", "frog"),
     ("CustomCruise", "1"),
     ("CustomCruiseLong", "5"),
+    ("CustomDistanceIcons", "stock"),
     ("CustomIcons", "frog_animated"),
     ("CustomPaths", "1"),
     ("CustomPersonalities", "0"),

@@ -61,6 +61,10 @@ def download_assets(model_manager, theme_manager, params, params_memory):
   if color_to_download:
     run_thread_with_lock("download_theme", theme_manager.download_theme, ("colors", color_to_download, "ColorToDownload"))
 
+  distance_icon_to_download = params_memory.get("DistanceIconToDownload", encoding='utf-8')
+  if distance_icon_to_download:
+    run_thread_with_lock("download_theme", theme_manager.download_theme, ("distance_icons", distance_icon_to_download, "DistanceIconToDownload"))
+
   icon_to_download = params_memory.get("IconToDownload", encoding='utf-8')
   if icon_to_download:
     run_thread_with_lock("download_theme", theme_manager.download_theme, ("icons", icon_to_download, "IconToDownload"))

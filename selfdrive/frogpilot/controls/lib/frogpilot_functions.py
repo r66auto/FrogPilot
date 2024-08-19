@@ -192,6 +192,13 @@ def setup_frogpilot(build_metadata):
     shutil.copytree(frog_color_source, frog_color_destination)
     print(f"Successfully copied {frog_color_source} to the theme save path.")
 
+  frog_distance_icon_source = os.path.join(ACTIVE_THEME_PATH, "distance_icons")
+  frog_distance_icon_destination = os.path.join(THEME_SAVE_PATH, "distance_icons")
+
+  if not os.path.exists(frog_distance_icon_destination):
+    shutil.copytree(frog_distance_icon_source, frog_distance_icon_destination)
+    print(f"Successfully copied {frog_distance_icon_source} to the theme save path.")
+
   frog_icon_source = os.path.join(ACTIVE_THEME_PATH, "icons")
   frog_icon_destination = os.path.join(THEME_SAVE_PATH, "frog_animated/icons")
 

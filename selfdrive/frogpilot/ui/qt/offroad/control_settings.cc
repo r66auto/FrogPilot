@@ -80,6 +80,7 @@ FrogPilotControlsPanel::FrogPilotControlsPanel(SettingsWindow *parent) : FrogPil
     {"RelaxedJerkSpeed", tr("Speed Control Jerk"), tr("Customize the speed control jerk when using the 'Relaxed' personality."), ""},
     {"ResetRelaxedPersonality", tr("Reset Settings"), tr("Reset the values for the 'Relaxed' personality back to stock."), ""},
     {"OnroadDistanceButton", tr("Onroad Distance Button"), tr("Simulate a distance button via the onroad UI to control personalities, 'Experimental Mode', and 'Traffic Mode'."), ""},
+    {"DownloadStatusLabel", tr("Download Status"), "", ""},
 
     {"ExperimentalModeActivation", tr("Experimental Mode Activation"), tr("Toggle Experimental Mode with either buttons on the steering wheel or the screen. \n\nOverrides 'Conditional Experimental Mode'."), "../assets/img_experimental_white.svg"},
     {"ExperimentalModeViaLKAS", tr("Click LKAS Button"), tr("Enable/disable 'Experimental Mode' by clicking the 'LKAS' button on your steering wheel."), ""},
@@ -307,6 +308,125 @@ FrogPilotControlsPanel::FrogPilotControlsPanel(SettingsWindow *parent) : FrogPil
       } else {
         controlToggle = new FrogPilotParamValueControl(param, title, desc, icon, 1, 500, std::map<int, QString>(), this, false, "%");
       }
+
+    } else if (param == "OnroadDistanceButton") {
+      std::vector<QString> CustomDistanceIconsOptions{tr("DELETE"), tr("DOWNLOAD"), tr("SELECT")};
+      manageDistanceIconsBtn = new FrogPilotButtonsControl(title, desc, icon, CustomDistanceIconsOptions);
+
+      std::function<QString(QString)> formatIconName = [](QString name) -> QString {
+        name = name.replace(' ', '_').toLower();
+        return name;
+      };
+
+      QObject::connect(manageDistanceIconsBtn, &FrogPilotButtonsControl::buttonClicked, [=](int id) {
+        QDir themesDir{"/data/themes"};
+        QFileInfoList dirList = themesDir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
+
+        QString currentIcons = QString::fromStdString(params.get("CustomDistanceIcons")).replace('_', ' ').toLower();
+        currentIcons[0] = currentIcons[0].toUpper();
+        for (int i = 1; i < currentIcons.length(); ++i) {
+          if (currentIcons[i - 1] == ' ' || currentIcons[i - 1] == '(') {
+            currentIcons[i] = currentIcons[i].toUpper();
+          }
+        }
+
+        QStringList availableIcons;
+        for (const QFileInfo &dirInfo : dirList) {
+          QString iconPackDir = dirInfo.absoluteFilePath();
+
+          if (QDir(iconPackDir + "/distance_icons").exists()) {
+            QString formattedName = dirInfo.fileName().replace('_', ' ');
+            formattedName[0] = formattedName[0].toUpper();
+
+            for (int i = 1; i < formattedName.length(); ++i) {
+              if (formattedName[i - 1] == ' ' || formattedName[i - 1] == '(') {
+                formattedName[i] = formattedName[i].toUpper();
+              }
+            }
+
+            availableIcons << formattedName;
+          }
+        }
+        availableIcons.append("Stock");
+        std::sort(availableIcons.begin(), availableIcons.end());
+
+        if (id == 0) {
+          QStringList iconPackList = availableIcons;
+          iconPackList.removeAll("Stock");
+          iconPackList.removeAll(currentIcons);
+
+          QString iconPackToDelete = MultiOptionDialog::getSelection(tr("Select an icon pack to delete"), iconPackList, "", this);
+          if (!iconPackToDelete.isEmpty() && ConfirmationDialog::confirm(tr("Are you sure you want to delete the '%1' icon pack?").arg(iconPackToDelete), tr("Delete"), this)) {
+            themeDeleting = true;
+            iconsDownloaded = false;
+
+            QString selectedIconPack = formatIconName(iconPackToDelete);
+            for (const QFileInfo &dirInfo : dirList) {
+              if (dirInfo.fileName() == selectedIconPack) {
+                QDir iconPackDir(dirInfo.absoluteFilePath() + "/distance_icons");
+                if (iconPackDir.exists()) {
+                  iconPackDir.removeRecursively();
+                }
+              }
+            }
+
+            QStringList downloadableIcons = QString::fromStdString(params.get("DownloadableDistanceIcons")).split(",");
+            downloadableIcons << iconPackToDelete;
+            downloadableIcons.removeDuplicates();
+            downloadableIcons.removeAll("");
+            std::sort(downloadableIcons.begin(), downloadableIcons.end());
+
+            params.put("DownloadableDistanceIcons", downloadableIcons.join(",").toStdString());
+            themeDeleting = false;
+          }
+        } else if (id == 1) {
+          if (manageDistanceIconsBtn->getButton(id)->text() == tr("CANCEL")) {
+            paramsMemory.putBool("CancelThemeDownload", true);
+            cancellingDownload = true;
+
+            QTimer::singleShot(2000, [=]() {
+              paramsMemory.putBool("CancelThemeDownload", false);
+              cancellingDownload = false;
+              iconsDownloading = false;
+              themeDownloading = false;
+            });
+          } else {
+            QStringList downloadableIcons = QString::fromStdString(params.get("DownloadableDistanceIcons")).split(",");
+            QString iconPackToDownload = MultiOptionDialog::getSelection(tr("Select an icon pack to download"), downloadableIcons, "", this);
+
+            if (!iconPackToDownload.isEmpty()) {
+              QString convertediconPack = formatIconName(iconPackToDownload);
+              paramsMemory.put("DistanceIconToDownload", convertediconPack.toStdString());
+              downloadStatusLabel->setText("Downloading...");
+              paramsMemory.put("ThemeDownloadProgress", "Downloading...");
+              iconsDownloading = true;
+              themeDownloading = true;
+
+              downloadableIcons.removeAll(iconPackToDownload);
+              params.put("DownloadableDistanceIcons", downloadableIcons.join(",").toStdString());
+            }
+          }
+        } else if (id == 2) {
+          QString iconPackToSelect = MultiOptionDialog::getSelection(tr("Select an icon pack"), availableIcons, currentIcons, this);
+          if (!iconPackToSelect.isEmpty()) {
+            params.put("CustomDistanceIcons", formatIconName(iconPackToSelect).toStdString());
+            manageDistanceIconsBtn->setValue(iconPackToSelect);
+            updateFrogPilotToggles();
+          }
+        }
+      });
+      QString CustomDistanceIcons = QString::fromStdString(params.get("CustomDistanceIcons")).replace('_', ' ').toLower();
+      CustomDistanceIcons[0] = CustomDistanceIcons[0].toUpper();
+      for (int i = 1; i < CustomDistanceIcons.length(); ++i) {
+        if (CustomDistanceIcons[i - 1] == ' ' || CustomDistanceIcons[i - 1] == '(') {
+          CustomDistanceIcons[i] = CustomDistanceIcons[i].toUpper();
+        }
+      }
+      manageDistanceIconsBtn->setValue(CustomDistanceIcons);
+      controlToggle = reinterpret_cast<AbstractControl*>(manageDistanceIconsBtn);
+    } else if (param == "DownloadStatusLabel") {
+      downloadStatusLabel = new LabelControl(title, "Idle");
+      controlToggle = reinterpret_cast<AbstractControl*>(downloadStatusLabel);
 
     } else if (param == "ExperimentalModeActivation") {
       FrogPilotParamManageControl *experimentalModeActivationToggle = new FrogPilotParamManageControl(param, title, desc, icon, this);
@@ -1098,7 +1218,33 @@ void FrogPilotControlsPanel::showEvent(QShowEvent *event) {
 void FrogPilotControlsPanel::updateState(const UIState &s) {
   if (!isVisible()) return;
 
-  if (modelManagementOpen) {
+  if (customPersonalitiesOpen) {
+    if (themeDownloading) {
+      QString progress = QString::fromStdString(paramsMemory.get("ThemeDownloadProgress"));
+      bool downloadFailed = progress.contains(QRegularExpression("cancelled|exists|Failed|offline", QRegularExpression::CaseInsensitiveOption));
+
+      if (progress != "Downloading...") {
+        downloadStatusLabel->setText(progress);
+      }
+
+      if (progress == "Downloaded!" || downloadFailed) {
+        QTimer::singleShot(2000, [=]() {
+          if (!themeDownloading) {
+            downloadStatusLabel->setText("Idle");
+          }
+        });
+        paramsMemory.remove("ThemeDownloadProgress");
+        iconsDownloading = false;
+
+        iconsDownloaded = params.get("DownloadableDistanceIcons").empty();
+      }
+    }
+
+    manageDistanceIconsBtn->setText(1, iconsDownloading ? tr("CANCEL") : tr("DOWNLOAD"));
+    manageDistanceIconsBtn->setButtonEnabled(0, !themeDeleting && !themeDownloading);
+    manageDistanceIconsBtn->setButtonEnabled(1, s.scene.online && (!themeDownloading || iconsDownloading) && !cancellingDownload && !themeDeleting && !iconsDownloaded);
+    manageDistanceIconsBtn->setButtonEnabled(2, !themeDeleting && !themeDownloading);
+  } else if (modelManagementOpen) {
     downloadAllModelsBtn->setText(modelDownloading && allModelsDownloading ? tr("CANCEL") : tr("DOWNLOAD"));
     downloadModelBtn->setText(modelDownloading && !allModelsDownloading ? tr("CANCEL") : tr("DOWNLOAD"));
 

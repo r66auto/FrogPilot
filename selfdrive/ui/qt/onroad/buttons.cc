@@ -229,10 +229,10 @@ void DistanceButton::updateIcon() {
   profile_data_png.clear();
 
   QVector<QString> file_names = {
-    "../frogpilot/assets/active_theme/icons/traffic",
-    "../frogpilot/assets/active_theme/icons/aggressive",
-    "../frogpilot/assets/active_theme/icons/standard",
-    "../frogpilot/assets/active_theme/icons/relaxed"
+    "../frogpilot/assets/active_theme/distance_icons/traffic",
+    "../frogpilot/assets/active_theme/distance_icons/aggressive",
+    "../frogpilot/assets/active_theme/distance_icons/standard",
+    "../frogpilot/assets/active_theme/distance_icons/relaxed"
   };
 
   for (const QString &file_name : file_names) {

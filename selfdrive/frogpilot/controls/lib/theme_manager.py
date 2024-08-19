@@ -166,8 +166,10 @@ class ThemeManager:
     self.params_memory.remove(theme_param)
 
   def handle_verification_failure(self, extentions, theme_component, theme_name, theme_param, download_path):
-    if theme_component == "steering_wheels":
-      download_link = f"{GITLAB_URL}{theme_name}/{theme_component}"
+    if theme_component == "distance_icons":
+      download_link = f"{GITLAB_URL}Distance-Icons/{theme_name}"
+    elif theme_component == "steering_wheels":
+      download_link = f"{GITLAB_URL}Steering-Wheels/{theme_name}"
     else:
       download_link = f"{GITLAB_URL}Themes/{theme_name}/{theme_component}"
 
@@ -195,7 +197,11 @@ class ThemeManager:
       handle_error(None, "GitHub and GitLab are offline...", "Repository unavailable", theme_param, self.download_progress_param, self.params_memory)
       return
 
-    if theme_component == "steering_wheels":
+    if theme_component == "distance_icons":
+      download_link = f"{repo_url}Distance-Icons/{theme_name}"
+      download_path = os.path.join(THEME_SAVE_PATH, theme_name, theme_component)
+      extentions = [".zip"]
+    elif theme_component == "steering_wheels":
       download_link = f"{repo_url}Steering-Wheels/{theme_name}"
       download_path = os.path.join(THEME_SAVE_PATH, theme_component, theme_name)
       extentions = [".gif", ".png"]
@@ -237,7 +243,7 @@ class ThemeManager:
     response.raise_for_status()
     return re.findall(r'href="[^"]*\/tree\/[^"]*\/([^"]*)"', response.text)
 
-  def update_theme_params(self, downloadable_colors, downloadable_icons, downloadable_signals, downloadable_sounds, downloadable_wheels):
+  def update_theme_params(self, downloadable_colors, downloadable_distance_icons, downloadable_icons, downloadable_signals, downloadable_sounds, downloadable_wheels):
     def filter_existing_assets(assets, subfolder):
       existing_themes = {
         theme.replace('_', ' ').title()
@@ -248,6 +254,13 @@ class ThemeManager:
 
     self.params.put("DownloadableColors", ','.join(filter_existing_assets(downloadable_colors, "colors")))
     print("Colors list updated successfully.")
+
+    distance_icons_directory = os.path.join(THEME_SAVE_PATH, "distance_icons")
+    self.params.put("DownloadableDistanceIcons", ','.join(sorted(set(downloadable_distance_icons) - {
+        distance_icons.replace('_', ' ').split('.')[0].title()
+        for distance_icons in os.listdir(distance_icons_directory)
+      }))
+    )
 
     self.params.put("DownloadableIcons", ','.join(filter_existing_assets(downloadable_icons, "icons")))
     print("Icons list updated successfully.")
@@ -276,10 +289,12 @@ class ThemeManager:
 
     if repo_url == GITHUB_URL:
       base_url = "https://github.com/FrogAi/FrogPilot-Resources/blob/Themes/"
-      wheel_files = self.fetch_files("https://github.com/FrogAi/FrogPilot-Resources/blob/Steering-Wheels")
+      distance_icons_files = self.fetch_files("https://github.com/FrogAi/FrogPilot-Resources/blob/Steering-Wheels")
+      wheel_files = self.fetch_files("https://github.com/FrogAi/FrogPilot-Resources/blob/Distance-Icons")
     else:
       base_url = "https://gitlab.com/FrogAi/FrogPilot-Resources/-/blob/Themes/"
-      wheel_files = self.fetch_files("https://gitlab.com/FrogAi/FrogPilot-Resources/-/blob/Steering-Wheels")
+      distance_icons_files = self.fetch_files("https://github.com/FrogAi/FrogPilot-Resources/blob/Steering-Wheels")
+      wheel_files = self.fetch_files("https://gitlab.com/FrogAi/FrogPilot-Resources/-/blob/Distance-Icons")
 
     theme_folders = self.fetch_folders(base_url)
     downloadable_colors = []
@@ -299,5 +314,7 @@ class ThemeManager:
       if link_valid(f"{base_url}{theme}/sounds.zip"):
         downloadable_sounds.append(theme_name)
 
+    downloadable_distance_icons = [distance_icons.replace('_', ' ').split('.')[0].title() for distance_icons in distance_icons_files]
     downloadable_wheels = [wheel.replace('_', ' ').split('.')[0].title() for wheel in wheel_files]
-    self.update_theme_params(downloadable_colors, downloadable_icons, downloadable_signals, downloadable_sounds, downloadable_wheels)
+
+    self.update_theme_params(downloadable_colors, downloadable_distance_icons, downloadable_icons, downloadable_signals, downloadable_sounds, downloadable_wheels)
